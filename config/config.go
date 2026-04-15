@@ -16,6 +16,7 @@ type Base struct {
 	OmurMode        string // OMUR_MODE (standalone|connected)
 	OmurTenantToken string // OMUR_TENANT_TOKEN
 	OmurSettingsKey string // OMUR_SETTINGS_KEY
+	AppVersion      string // APP_VERSION (semantic version injected at build time)
 
 	// CORS
 	CORSOrigins string // CORS_ORIGINS
@@ -44,6 +45,7 @@ func Load() Base {
 		OmurMode:        envStr("OMUR_MODE", "standalone"),
 		OmurTenantToken: envStr("OMUR_TENANT_TOKEN", ""),
 		OmurSettingsKey: envStr("OMUR_SETTINGS_KEY", ""),
+		AppVersion:      envStr("APP_VERSION", "dev"),
 
 		CORSOrigins: envStr("CORS_ORIGINS", "https://omur.local,http://localhost:3000"),
 
