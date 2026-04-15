@@ -15,7 +15,6 @@ type Base struct {
 	// Omur runtime
 	OmurMode        string // OMUR_MODE (standalone|connected)
 	OmurTenantToken string // OMUR_TENANT_TOKEN
-	OmurTenantID    string // OMUR_TENANT_ID
 	OmurSettingsKey string // OMUR_SETTINGS_KEY
 
 	// CORS
@@ -44,7 +43,6 @@ func Load() Base {
 	return Base{
 		OmurMode:        envStr("OMUR_MODE", "standalone"),
 		OmurTenantToken: envStr("OMUR_TENANT_TOKEN", ""),
-		OmurTenantID:    envStr("OMUR_TENANT_ID", ""),
 		OmurSettingsKey: envStr("OMUR_SETTINGS_KEY", ""),
 
 		CORSOrigins: envStr("CORS_ORIGINS", "https://omur.local,http://localhost:3000"),
