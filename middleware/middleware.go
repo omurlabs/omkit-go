@@ -48,6 +48,7 @@ func matchWildcard(patterns []string, origin string) bool {
 }
 
 // BearerAuth validates Authorization: Bearer <token> against expectedToken.
+// Also accepts requests authenticated via Authentik forward-auth (X-Authentik-Uid header).
 // Skips auth for health/ready endpoints.
 func BearerAuth(token string, next http.Handler) http.Handler {
 	if token == "" {
@@ -59,12 +60,17 @@ func BearerAuth(token string, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Accept bearer token OR Authentik forward-auth headers
 		auth := r.Header.Get("Authorization")
-		if !strings.HasPrefix(auth, "Bearer ") || auth[7:] != token {
-			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		if strings.HasPrefix(auth, "Bearer ") && auth[7:] == token {
+			next.ServeHTTP(w, r)
 			return
 		}
-		next.ServeHTTP(w, r)
+		if r.Header.Get("X-Authentik-Uid") != "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 	})
 }
 
