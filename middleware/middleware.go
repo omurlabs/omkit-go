@@ -49,6 +49,8 @@ func matchWildcard(patterns []string, origin string) bool {
 
 // BearerAuth validates Authorization: Bearer <token> against expectedToken.
 // Also accepts requests authenticated via Authentik forward-auth (X-Authentik-Uid header).
+// Caddy's forward_auth directive strips X-Authentik-* from external requests before
+// forwarding to Authentik, so this header is trustworthy when present.
 // Skips auth for health/ready endpoints.
 func BearerAuth(token string, next http.Handler) http.Handler {
 	if token == "" {
@@ -60,12 +62,18 @@ func BearerAuth(token string, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		// Accept bearer token OR Authentik forward-auth headers
+		// Accept bearer token
 		auth := r.Header.Get("Authorization")
 		if strings.HasPrefix(auth, "Bearer ") && auth[7:] == token {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Accept X-Service-Token (internal service-to-service)
+		if svcToken := r.Header.Get("X-Service-Token"); svcToken != "" && svcToken == token {
+			next.ServeHTTP(w, r)
+			return
+		}
+		// Accept Authentik forward-auth headers (set by Caddy after forward_auth check)
 		if r.Header.Get("X-Authentik-Uid") != "" {
 			next.ServeHTTP(w, r)
 			return
