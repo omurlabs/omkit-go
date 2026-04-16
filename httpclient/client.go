@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // ErrCircuitOpen is returned when the circuit breaker is open.
@@ -84,10 +86,11 @@ func (cb *CircuitBreaker) RecordFailure() {
 
 // Client is an HTTP client with retries, auth headers, and optional circuit breaker.
 type Client struct {
-	http           http.Client
-	retries        int
-	headers        map[string]string
-	circuitBreaker *CircuitBreaker
+	http            http.Client
+	retries         int
+	headers         map[string]string
+	circuitBreaker  *CircuitBreaker
+	tracingDisabled bool
 }
 
 // Option is a functional option for Client.
@@ -103,7 +106,20 @@ func New(opts ...Option) *Client {
 	for _, o := range opts {
 		o(c)
 	}
+	if !c.tracingDisabled {
+		base := c.http.Transport
+		if base == nil {
+			base = http.DefaultTransport
+		}
+		c.http.Transport = otelhttp.NewTransport(base)
+	}
 	return c
+}
+
+// WithoutTracing disables the default otelhttp transport wrapper.
+// Use when outbound trace propagation is not desired.
+func WithoutTracing() Option {
+	return func(c *Client) { c.tracingDisabled = true }
 }
 
 // WithTimeout sets the HTTP client timeout.
@@ -129,6 +145,12 @@ func WithServiceToken(token string) Option {
 // WithCircuitBreaker attaches a circuit breaker to the client.
 func WithCircuitBreaker(cb *CircuitBreaker) Option {
 	return func(c *Client) { c.circuitBreaker = cb }
+}
+
+// WithCheckRedirect overrides the underlying http.Client.CheckRedirect.
+// Use http.ErrUseLastResponse to disable redirect following entirely.
+func WithCheckRedirect(fn func(req *http.Request, via []*http.Request) error) Option {
+	return func(c *Client) { c.http.CheckRedirect = fn }
 }
 
 // PostJSON marshals body as JSON and POSTs it. Retries on 5xx with exponential backoff.
@@ -228,6 +250,40 @@ func (c *Client) GetJSON(ctx context.Context, url string) (*http.Response, error
 		req.Header.Set(k, v)
 	}
 
+	resp, err := c.http.Do(req)
+	if err != nil {
+		if c.circuitBreaker != nil {
+			c.circuitBreaker.RecordFailure()
+		}
+		return nil, err
+	}
+	if c.circuitBreaker != nil {
+		if resp.StatusCode >= 500 {
+			c.circuitBreaker.RecordFailure()
+		} else {
+			c.circuitBreaker.RecordSuccess()
+		}
+	}
+	return resp, nil
+}
+
+// Do executes a pre-built HTTP request through the configured client.
+// Applies timeout, circuit breaker, and configured auth headers (only when the
+// caller has not already set them on req). Does NOT retry — request bodies may
+// not be replayable. Caller is responsible for closing resp.Body.
+// On transport error, resp is nil. On non-2xx, resp.Body is left open for the
+// caller (mirrors http.Client.Do).
+// Header mutations on req are isolated from the caller via req.Clone.
+func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
+	if c.circuitBreaker != nil && !c.circuitBreaker.Allow() {
+		return nil, ErrCircuitOpen
+	}
+	req = req.Clone(ctx)
+	for k, v := range c.headers {
+		if req.Header.Get(k) == "" {
+			req.Header.Set(k, v)
+		}
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if c.circuitBreaker != nil {

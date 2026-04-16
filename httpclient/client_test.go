@@ -1,8 +1,10 @@
 package httpclient_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -10,6 +12,10 @@ import (
 	"time"
 
 	"github.com/omurlabs/omur-core/packages/omur-go-sdk/httpclient"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 func TestPostJSON_Success(t *testing.T) {
@@ -162,4 +168,257 @@ func TestCircuitBreaker_OpensAfterFailures(t *testing.T) {
 	if err != httpclient.ErrCircuitOpen {
 		t.Fatalf("expected ErrCircuitOpen, got %v", err)
 	}
+}
+
+func TestDo_ForwardsMethodAndHeaders(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		if r.Header.Get("X-Custom") != "yes" {
+			t.Errorf("expected X-Custom=yes, got %q", r.Header.Get("X-Custom"))
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New()
+	req, _ := http.NewRequest(http.MethodPut, srv.URL, nil)
+	req.Header.Set("X-Custom", "yes")
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	resp.Body.Close()
+}
+
+func TestDo_CallerAuthWins(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer caller" {
+			t.Errorf("expected Bearer caller, got %q", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithBearerToken("sdk"))
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	req.Header.Set("Authorization", "Bearer caller")
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	resp.Body.Close()
+}
+
+func TestDo_SDKAuthAppliedWhenAbsent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer sdk" {
+			t.Errorf("expected Bearer sdk, got %q", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithBearerToken("sdk"))
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	resp.Body.Close()
+}
+
+func TestDo_CircuitBreakerTripsOn5xx(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	cb := httpclient.NewCircuitBreaker(3, 30*time.Second)
+	c := httpclient.New(httpclient.WithCircuitBreaker(cb), httpclient.WithTimeout(2*time.Second))
+	for i := 0; i < 3; i++ {
+		req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+		resp, err := c.Do(context.Background(), req)
+		if err == nil {
+			resp.Body.Close()
+		}
+	}
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	_, err := c.Do(context.Background(), req)
+	if err != httpclient.ErrCircuitOpen {
+		t.Fatalf("expected ErrCircuitOpen, got %v", err)
+	}
+}
+
+func TestDo_StreamBody_NoRetry(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		// Read and discard body — proves it was actually sent on this attempt.
+		body, _ := io.ReadAll(r.Body)
+		if string(body) != "body" {
+			t.Errorf("expected body=%q, got %q", "body", body)
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithRetries(5)) // retries should NOT apply to Do
+	req, _ := http.NewRequest(http.MethodPost, srv.URL, bytes.NewReader([]byte("body")))
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Strong assertions: exactly one call AND the 5xx response propagates.
+	if calls.Load() != 1 {
+		t.Errorf("expected 1 call, got %d (Do unexpectedly retried)", calls.Load())
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected 500 propagated to caller, got %d", resp.StatusCode)
+	}
+}
+
+func TestDo_HeaderIsolation_DoesNotMutateCallerRequest(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithBearerToken("sdk-default"))
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Fatalf("precondition: req.Header should be empty, got %q", got)
+	}
+
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	// SDK should NOT have mutated caller's original request headers.
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Errorf("Do leaked SDK header back to caller's req: %q", got)
+	}
+}
+
+func TestDo_TransportError_ReturnNilResp(t *testing.T) {
+	c := httpclient.New(httpclient.WithTimeout(50 * time.Millisecond))
+	req, _ := http.NewRequest(http.MethodGet, "http://127.0.0.1:1", nil) // closed
+	resp, err := c.Do(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if resp != nil {
+		t.Errorf("expected nil resp, got %v", resp)
+	}
+}
+
+func TestDo_NonTwoxxBodyNotClosed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"error":"nope"}`))
+	}))
+	defer srv.Close()
+
+	c := httpclient.New()
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != `{"error":"nope"}` {
+		t.Errorf("expected error body readable, got %q", body)
+	}
+}
+
+func TestDo_CheckRedirect_ErrUseLastResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "http://evil.example/")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithCheckRedirect(func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}))
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusFound {
+		t.Errorf("expected 302, got %d", resp.StatusCode)
+	}
+	if loc := resp.Header.Get("Location"); loc != "http://evil.example/" {
+		t.Errorf("expected raw Location header preserved, got %q", loc)
+	}
+}
+
+func TestDo_ContextCancellation(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithTimeout(time.Second))
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	_, err := c.Do(ctx, req)
+	if err == nil {
+		t.Fatal("expected ctx error")
+	}
+}
+
+func TestNew_DefaultTransportPropagatesTraceContext(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Traceparent") == "" {
+			t.Errorf("expected Traceparent header — otelhttp transport not wired")
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	exporter := tracetest.NewInMemoryExporter()
+	tp := trace.NewTracerProvider(trace.WithSyncer(exporter))
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	defer tp.Shutdown(context.Background())
+
+	ctx, span := tp.Tracer("test").Start(context.Background(), "outer")
+	defer span.End()
+
+	c := httpclient.New()
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	resp, err := c.Do(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+}
+
+func TestNew_WithoutTracing_NoTraceparent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Traceparent"); got != "" {
+			t.Errorf("expected no Traceparent, got %q", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithoutTracing())
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
 }
