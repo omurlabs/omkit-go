@@ -64,17 +64,10 @@ func (s *statusRecorder) WriteHeader(code int) {
 }
 
 // HTTPMiddleware records http_requests_total and http_request_duration_seconds
-// for each request handled by the wrapped Handler.
+// for each request handled by the wrapped Handler. This is equivalent to
+// HTTPMiddlewareWithExclusions(serviceName) with no exclusions.
 func HTTPMiddleware(serviceName string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
-			next.ServeHTTP(rec, r)
-			httpRequestsTotal.WithLabelValues(serviceName, r.Method, strconv.Itoa(rec.status)).Inc()
-			httpRequestDuration.WithLabelValues(serviceName, r.Method).Observe(time.Since(start).Seconds())
-		})
-	}
+	return HTTPMiddlewareWithExclusions(serviceName)
 }
 
 // DefaultMetricsExclusions are paths that should not be counted as application
