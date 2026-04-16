@@ -6,11 +6,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PG_PASS="${POSTGRES_PASSWORD:-}"
-if [[ -z "$PG_PASS" && -f ../../.env ]]; then
-  PG_PASS="$(grep -E '^POSTGRES_PASSWORD=' ../../.env | cut -d= -f2-)"
-fi
+for env_path in ../../.env ../../../omur-core/.env; do
+  if [[ -z "$PG_PASS" && -f "$env_path" ]]; then
+    PG_PASS="$(grep -E '^POSTGRES_PASSWORD=' "$env_path" | cut -d= -f2-)"
+  fi
+done
 if [[ -z "$PG_PASS" ]]; then
-  echo "POSTGRES_PASSWORD not set and not found in ../../.env" >&2
+  echo "POSTGRES_PASSWORD not set and not found in ../../.env or ../../../omur-core/.env" >&2
   exit 1
 fi
 
