@@ -93,6 +93,31 @@ func TestPostgresBusPublishSubscribe(t *testing.T) {
 	}
 }
 
+func TestEventBusFactory(t *testing.T) {
+	tests := []struct {
+		env  string
+		want string
+	}{
+		{"", "postgres"},
+		{"postgres", "postgres"},
+		{"redis", "redis"},
+	}
+	for _, tc := range tests {
+		t.Setenv("OMUR_EVENTBUS_BACKEND", tc.env)
+		got, err := eventbus.BackendFromEnv()
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		if string(got) != tc.want {
+			t.Fatalf("got %s want %s", got, tc.want)
+		}
+	}
+	t.Setenv("OMUR_EVENTBUS_BACKEND", "wat")
+	if _, err := eventbus.BackendFromEnv(); err == nil {
+		t.Fatal("expected error for invalid backend")
+	}
+}
+
 func TestRedisBusPublishSubscribe(t *testing.T) {
 	addr := os.Getenv("TEST_REDIS_ADDR")
 	if addr == "" {
