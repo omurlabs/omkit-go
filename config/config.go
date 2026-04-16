@@ -122,3 +122,13 @@ func EnvBool(key string, fallback bool) bool {
 	}
 	return fallback
 }
+
+// EnvInt64 reads an int64 env var with a fallback for empty/invalid values.
+func EnvInt64(key string, fallback int64) int64 {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return n
+		}
+	}
+	return fallback
+}
