@@ -153,6 +153,12 @@ func WithCheckRedirect(fn func(req *http.Request, via []*http.Request) error) Op
 	return func(c *Client) { c.http.CheckRedirect = fn }
 }
 
+// WithTransport sets a custom base transport. When tracing is enabled (the
+// default), otelhttp wraps this transport so OTel headers are still injected.
+func WithTransport(t http.RoundTripper) Option {
+	return func(c *Client) { c.http.Transport = t }
+}
+
 // PostJSON marshals body as JSON and POSTs it. Retries on 5xx with exponential backoff.
 // Returns the last response on retry exhaustion. Returns ErrCircuitOpen if circuit is open.
 func (c *Client) PostJSON(ctx context.Context, url string, body interface{}) (*http.Response, error) {
