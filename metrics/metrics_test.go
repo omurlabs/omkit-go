@@ -79,3 +79,62 @@ func TestGauge_Factory(t *testing.T) {
 		t.Errorf("expected gauge value, got: %s", rec.Body.String())
 	}
 }
+
+func TestHTTPMiddlewareWithExclusions_SkipsExcluded(t *testing.T) {
+	wrapped := metrics.HTTPMiddlewareWithExclusions("excl-svc", "/metrics", "/health")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	srv := httptest.NewServer(wrapped)
+	defer srv.Close()
+
+	// Hit excluded paths — these should NOT increment metrics
+	resp, err := http.Get(srv.URL + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	resp, err = http.Get(srv.URL + "/health")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	// Hit a non-excluded path — this SHOULD increment metrics
+	resp, err = http.Get(srv.URL + "/foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	// Scrape metrics output
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	metrics.Handler().ServeHTTP(rec, req)
+	body := rec.Body.String()
+
+	if !strings.Contains(body, `service="excl-svc"`) {
+		t.Errorf("expected service label for /foo, got: %s", body)
+	}
+
+	// http_requests_total{service="excl-svc",method="GET",code="200"} should be exactly 1.
+	// If /metrics and /health were counted, it would be 3.
+	for _, line := range strings.Split(body, "\n") {
+		if strings.Contains(line, `http_requests_total{service="excl-svc"`) {
+			// Expect the counter value to be 1 (single non-excluded GET /foo).
+			if !strings.HasSuffix(strings.TrimSpace(line), " 1") {
+				t.Errorf("expected counter value 1 for excl-svc, got line: %q", line)
+			}
+		}
+	}
+}
+
+func TestDefaultMetricsExclusions_Contents(t *testing.T) {
+	expected := map[string]bool{"/metrics": true, "/health": true, "/healthz": true, "/ready": true}
+	if len(metrics.DefaultMetricsExclusions) != len(expected) {
+		t.Errorf("DefaultMetricsExclusions length = %d, want %d", len(metrics.DefaultMetricsExclusions), len(expected))
+	}
+	for _, p := range metrics.DefaultMetricsExclusions {
+		if !expected[p] {
+			t.Errorf("unexpected path in DefaultMetricsExclusions: %s", p)
+		}
+	}
+}

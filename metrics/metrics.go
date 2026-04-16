@@ -76,3 +76,29 @@ func HTTPMiddleware(serviceName string) func(http.Handler) http.Handler {
 		})
 	}
 }
+
+// DefaultMetricsExclusions are paths that should not be counted as application
+// HTTP traffic — typically scrape and probe endpoints.
+var DefaultMetricsExclusions = []string{"/metrics", "/health", "/healthz", "/ready"}
+
+// HTTPMiddlewareWithExclusions is HTTPMiddleware that skips recording for the
+// given exact paths. Pass DefaultMetricsExclusions for the conventional set.
+func HTTPMiddlewareWithExclusions(serviceName string, excludePaths ...string) func(http.Handler) http.Handler {
+	excl := make(map[string]struct{}, len(excludePaths))
+	for _, p := range excludePaths {
+		excl[p] = struct{}{}
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, skip := excl[r.URL.Path]; skip {
+				next.ServeHTTP(w, r)
+				return
+			}
+			start := time.Now()
+			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+			next.ServeHTTP(rec, r)
+			httpRequestsTotal.WithLabelValues(serviceName, r.Method, strconv.Itoa(rec.status)).Inc()
+			httpRequestDuration.WithLabelValues(serviceName, r.Method).Observe(time.Since(start).Seconds())
+		})
+	}
+}
