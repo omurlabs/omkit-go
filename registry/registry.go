@@ -6,12 +6,41 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
+
+// Backend selects the live-reload strategy used by Registry.Start.
+type Backend string
+
+const (
+	// BackendPostgres polls the providers table for changes.
+	BackendPostgres Backend = "postgres"
+	// BackendRedis subscribes to omur:providers:updated:* on Valkey.
+	BackendRedis Backend = "redis"
+)
+
+// backendFromEnv returns the configured provider-registry backend, defaulting
+// to postgres.
+func backendFromEnv() Backend {
+	v := os.Getenv("OMUR_PROVIDERS_BACKEND")
+	switch Backend(v) {
+	case BackendRedis:
+		return BackendRedis
+	case BackendPostgres:
+		return BackendPostgres
+	default:
+		return BackendPostgres
+	}
+}
+
+// DefaultProvidersPollInterval is the fallback poll interval for the postgres
+// backend when callers don't override via WithPollInterval.
+const DefaultProvidersPollInterval = 10 * time.Second
 
 // Provider is the interface each data provider must implement.
 type Provider interface {
@@ -29,21 +58,50 @@ type Registry struct {
 	db        *pgxpool.Pool
 	valkeyURL string
 
+	backend      Backend
+	pollInterval time.Duration
+
 	mu     sync.Mutex
 	tasks  map[string]context.CancelFunc // key: "tenant_id:name"
 	wg     sync.WaitGroup
 	cancel context.CancelFunc
 }
 
-// New creates a Registry for the given provider kind (e.g. "collector").
-func New(kind string, db *pgxpool.Pool, valkeyURL string, factories map[string]ProviderFactory) *Registry {
-	return &Registry{
-		kind:      kind,
-		factories: factories,
-		db:        db,
-		valkeyURL: valkeyURL,
-		tasks:     make(map[string]context.CancelFunc),
+// Option configures a Registry.
+type Option func(*Registry)
+
+// WithPollInterval overrides the default providers poll interval for the
+// postgres backend.
+func WithPollInterval(d time.Duration) Option {
+	return func(r *Registry) {
+		r.pollInterval = d
 	}
+}
+
+// WithBackend forces a specific backend, overriding OMUR_PROVIDERS_BACKEND.
+func WithBackend(b Backend) Option {
+	return func(r *Registry) {
+		r.backend = b
+	}
+}
+
+// New creates a Registry for the given provider kind (e.g. "collector"). The
+// backend is selected from OMUR_PROVIDERS_BACKEND (default postgres) unless
+// WithBackend is supplied.
+func New(kind string, db *pgxpool.Pool, valkeyURL string, factories map[string]ProviderFactory, opts ...Option) *Registry {
+	r := &Registry{
+		kind:         kind,
+		factories:    factories,
+		db:           db,
+		valkeyURL:    valkeyURL,
+		tasks:        make(map[string]context.CancelFunc),
+		pollInterval: DefaultProvidersPollInterval,
+		backend:      backendFromEnv(),
+	}
+	for _, o := range opts {
+		o(r)
+	}
+	return r
 }
 
 type providerRow struct {
@@ -67,9 +125,30 @@ func (r *Registry) Start(ctx context.Context) {
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
-		r.subscribeValkey(ctx)
+		switch r.backend {
+		case BackendRedis:
+			r.subscribeValkey(ctx)
+		default:
+			r.runPollingLoop(ctx)
+		}
 	}()
-	slog.Info("registry.started", "kind", r.kind, "tasks", len(r.tasks))
+	slog.Info("registry.started", "kind", r.kind, "tasks", len(r.tasks), "backend", string(r.backend))
+}
+
+// runPollingLoop reconciles desired-vs-running tasks every pollInterval by
+// re-fetching from the providers table. This replaces valkey pub/sub at the
+// cost of pollInterval latency.
+func (r *Registry) runPollingLoop(ctx context.Context) {
+	ticker := time.NewTicker(r.pollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			r.reconcile(ctx)
+		}
+	}
 }
 
 // Stop cancels all running providers and waits for them to finish.
