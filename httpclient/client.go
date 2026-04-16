@@ -131,6 +131,12 @@ func WithCircuitBreaker(cb *CircuitBreaker) Option {
 	return func(c *Client) { c.circuitBreaker = cb }
 }
 
+// WithCheckRedirect overrides the underlying http.Client.CheckRedirect.
+// Use http.ErrUseLastResponse to disable redirect following entirely.
+func WithCheckRedirect(fn func(req *http.Request, via []*http.Request) error) Option {
+	return func(c *Client) { c.http.CheckRedirect = fn }
+}
+
 // PostJSON marshals body as JSON and POSTs it. Retries on 5xx with exponential backoff.
 // Returns the last response on retry exhaustion. Returns ErrCircuitOpen if circuit is open.
 func (c *Client) PostJSON(ctx context.Context, url string, body interface{}) (*http.Response, error) {
@@ -228,6 +234,39 @@ func (c *Client) GetJSON(ctx context.Context, url string) (*http.Response, error
 		req.Header.Set(k, v)
 	}
 
+	resp, err := c.http.Do(req)
+	if err != nil {
+		if c.circuitBreaker != nil {
+			c.circuitBreaker.RecordFailure()
+		}
+		return nil, err
+	}
+	if c.circuitBreaker != nil {
+		if resp.StatusCode >= 500 {
+			c.circuitBreaker.RecordFailure()
+		} else {
+			c.circuitBreaker.RecordSuccess()
+		}
+	}
+	return resp, nil
+}
+
+// Do executes a pre-built HTTP request through the configured client.
+// Applies timeout, circuit breaker, and configured auth headers (only when the
+// caller has not already set them on req). Does NOT retry — request bodies may
+// not be replayable. Caller is responsible for closing resp.Body.
+// On transport error, resp is nil. On non-2xx, resp.Body is left open for the
+// caller (mirrors http.Client.Do).
+func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
+	if c.circuitBreaker != nil && !c.circuitBreaker.Allow() {
+		return nil, ErrCircuitOpen
+	}
+	req = req.WithContext(ctx)
+	for k, v := range c.headers {
+		if req.Header.Get(k) == "" {
+			req.Header.Set(k, v)
+		}
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if c.circuitBreaker != nil {
