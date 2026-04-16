@@ -9,7 +9,42 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Config configures a pool created via NewPool.
+type Config struct {
+	DSN      string
+	Role     string // application role to SET on every new connection (e.g. "omur_app")
+	MaxConns int32  // pool max connections; zero means pgx default
+}
+
+// NewPool returns a pgxpool that runs `SET ROLE <role>` on every new connection
+// via AfterConnect. This guarantees the role is set even if the application
+// forgets, and survives reconnects without needing PgBouncer's server_reset_query.
+// Callers should prefer NewPool over the legacy New when they want the defence-in-depth
+// role-setting behaviour introduced alongside the PgBouncer removal.
+func NewPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
+	if cfg.DSN == "" {
+		return nil, fmt.Errorf("dbpool: DSN required")
+	}
+	pcfg, err := pgxpool.ParseConfig(cfg.DSN)
+	if err != nil {
+		return nil, fmt.Errorf("dbpool: parse config: %w", err)
+	}
+	if cfg.MaxConns > 0 {
+		pcfg.MaxConns = cfg.MaxConns
+	}
+	if cfg.Role != "" {
+		role := cfg.Role
+		pcfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+			_, err := conn.Exec(ctx, "SET ROLE "+pgx.Identifier{role}.Sanitize())
+			return err
+		}
+	}
+	return pgxpool.NewWithConfig(ctx, pcfg)
+}
+
 // New creates a pgx connection pool from a DSN string.
+// Deprecated: prefer NewPool which accepts a Config and sets the application role
+// on every new connection via AfterConnect. Retained for existing callers.
 func New(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
