@@ -171,3 +171,76 @@ func TestPostgresStoreList(t *testing.T) {
 		t.Fatalf("expected 2 sessions, got %d", len(got))
 	}
 }
+
+func TestRedisStorePutGetDelete(t *testing.T) {
+	addr := os.Getenv("TEST_REDIS_ADDR")
+	if addr == "" {
+		t.Skip("TEST_REDIS_ADDR not set")
+	}
+	store, err := sessions.NewRedisStore(sessions.RedisConfig{
+		Addr:      addr,
+		Password:  os.Getenv("TEST_REDIS_PASSWORD"),
+		KeyPrefix: "test:omur:session:",
+	})
+	if err != nil {
+		t.Fatalf("NewRedisStore: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+	s := &sessions.Session{
+		Token:     "rtest-1",
+		TenantID:  "00000000-0000-0000-0000-000000000001",
+		Payload:   []byte(`{"k":1}`),
+		ExpiresAt: time.Now().Add(time.Hour),
+	}
+	if err := store.Put(ctx, s); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	got, err := store.Get(ctx, "rtest-1")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if string(got.Payload) != `{"k":1}` {
+		t.Fatalf("payload mismatch: %s", got.Payload)
+	}
+	_ = store.Delete(ctx, "rtest-1")
+	if _, err := store.Get(ctx, "rtest-1"); err != sessions.ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestFactorySelectsBackend(t *testing.T) {
+	tests := []struct {
+		env     map[string]string
+		want    string
+		wantErr bool
+	}{
+		{env: map[string]string{"OMUR_SESSION_BACKEND": "postgres"}, want: "postgres"},
+		{env: map[string]string{"OMUR_SESSION_BACKEND": "redis"}, want: "redis"},
+		{env: map[string]string{}, want: "postgres"},
+		{env: map[string]string{"OMUR_SESSION_BACKEND": "garbage"}, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.want+"-"+fmtBool(tc.wantErr), func(t *testing.T) {
+			t.Setenv("OMUR_SESSION_BACKEND", "")
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			got, err := sessions.BackendFromEnv()
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err mismatch: %v want=%v", err, tc.wantErr)
+			}
+			if !tc.wantErr && string(got) != tc.want {
+				t.Fatalf("backend: got %s want %s", got, tc.want)
+			}
+		})
+	}
+}
+
+func fmtBool(b bool) string {
+	if b {
+		return "err"
+	}
+	return "ok"
+}
