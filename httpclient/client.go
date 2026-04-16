@@ -257,11 +257,12 @@ func (c *Client) GetJSON(ctx context.Context, url string) (*http.Response, error
 // not be replayable. Caller is responsible for closing resp.Body.
 // On transport error, resp is nil. On non-2xx, resp.Body is left open for the
 // caller (mirrors http.Client.Do).
+// Header mutations on req are isolated from the caller via req.Clone.
 func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
 	if c.circuitBreaker != nil && !c.circuitBreaker.Allow() {
 		return nil, ErrCircuitOpen
 	}
-	req = req.WithContext(ctx)
+	req = req.Clone(ctx)
 	for k, v := range c.headers {
 		if req.Header.Get(k) == "" {
 			req.Header.Set(k, v)

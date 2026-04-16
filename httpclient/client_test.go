@@ -251,6 +251,11 @@ func TestDo_StreamBody_NoRetry(t *testing.T) {
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
+		// Read and discard body — proves it was actually sent on this attempt.
+		body, _ := io.ReadAll(r.Body)
+		if string(body) != "body" {
+			t.Errorf("expected body=%q, got %q", "body", body)
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
@@ -261,9 +266,38 @@ func TestDo_StreamBody_NoRetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected: %v", err)
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+
+	// Strong assertions: exactly one call AND the 5xx response propagates.
 	if calls.Load() != 1 {
-		t.Errorf("expected 1 call, got %d", calls.Load())
+		t.Errorf("expected 1 call, got %d (Do unexpectedly retried)", calls.Load())
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected 500 propagated to caller, got %d", resp.StatusCode)
+	}
+}
+
+func TestDo_HeaderIsolation_DoesNotMutateCallerRequest(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithBearerToken("sdk-default"))
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Fatalf("precondition: req.Header should be empty, got %q", got)
+	}
+
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	// SDK should NOT have mutated caller's original request headers.
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Errorf("Do leaked SDK header back to caller's req: %q", got)
 	}
 }
 
