@@ -47,12 +47,21 @@ func main() {
 Inside-out wrapping order:
 
 ```
-mux → metrics → Auth → CORS → RequestLog → Trace (outermost)
+mux → metrics → tenantMw → Auth → CORS → RequestLog → Trace (outermost)
 ```
 
 ```go
 var h http.Handler = mux
 h = metrics.HTTPMiddlewareWithExclusions("my-service", metrics.DefaultMetricsExclusions...)(h)
+// Tenant middleware (optional): resolves X-Tenant-ID / auto-provisions tenant
+// from the token and binds tenant contextvars. Goes BETWEEN metrics and
+// BearerAuth so metrics see the resolved tenant but auth still gates.
+// Omit if the service doesn't resolve tenants from the request (e.g., reflex).
+tenantMw := tenant.Middleware(tenant.MiddlewareConfig{
+    Resolve:       newTenantResolver(pool),
+    AutoProvision: newTenantAutoProvisioner(pool),
+})
+h = tenantMw(h)
 h = middleware.BearerAuth(cfg.TenantToken, h) // optional
 h = middleware.CORS(cfg.CORSOriginsList(), h)
 h = middleware.RequestLog(h)
@@ -64,6 +73,7 @@ h = middleware.Trace("my-service")(h)
 - **RequestLog inside Trace**: log lines carry the trace ID since the span is open.
 - **Auth inside CORS**: CORS pre-flight (OPTIONS) bypasses auth.
 - **Metrics innermost**: counts only handler-reaching requests. Auth-rejected requests show up in logs/traces but not in `http_requests_total`. To break out 401s, use the existing `code` label on `http_requests_total`.
+- **tenantMw between metrics and Auth**: metrics count already-labelled tenant requests; auth still decides the request. Omit if the service has no tenant resolution.
 
 Use `metrics.HTTPMiddlewareWithExclusions("svc", metrics.DefaultMetricsExclusions...)` (not the bare `HTTPMiddleware`) so `/metrics`, `/health`, `/healthz`, `/ready` don't pollute counters.
 
