@@ -12,6 +12,10 @@ import (
 	"time"
 
 	"github.com/omurlabs/omur-core/packages/omur-go-sdk/httpclient"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 func TestPostJSON_Success(t *testing.T) {
@@ -372,4 +376,49 @@ func TestDo_ContextCancellation(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected ctx error")
 	}
+}
+
+func TestNew_DefaultTransportPropagatesTraceContext(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Traceparent") == "" {
+			t.Errorf("expected Traceparent header — otelhttp transport not wired")
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	exporter := tracetest.NewInMemoryExporter()
+	tp := trace.NewTracerProvider(trace.WithSyncer(exporter))
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	defer tp.Shutdown(context.Background())
+
+	ctx, span := tp.Tracer("test").Start(context.Background(), "outer")
+	defer span.End()
+
+	c := httpclient.New()
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	resp, err := c.Do(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+}
+
+func TestNew_WithoutTracing_NoTraceparent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Traceparent"); got != "" {
+			t.Errorf("expected no Traceparent, got %q", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithoutTracing())
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	resp, err := c.Do(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
 }

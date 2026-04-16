@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // ErrCircuitOpen is returned when the circuit breaker is open.
@@ -84,10 +86,11 @@ func (cb *CircuitBreaker) RecordFailure() {
 
 // Client is an HTTP client with retries, auth headers, and optional circuit breaker.
 type Client struct {
-	http           http.Client
-	retries        int
-	headers        map[string]string
-	circuitBreaker *CircuitBreaker
+	http            http.Client
+	retries         int
+	headers         map[string]string
+	circuitBreaker  *CircuitBreaker
+	tracingDisabled bool
 }
 
 // Option is a functional option for Client.
@@ -103,7 +106,20 @@ func New(opts ...Option) *Client {
 	for _, o := range opts {
 		o(c)
 	}
+	if !c.tracingDisabled {
+		base := c.http.Transport
+		if base == nil {
+			base = http.DefaultTransport
+		}
+		c.http.Transport = otelhttp.NewTransport(base)
+	}
 	return c
+}
+
+// WithoutTracing disables the default otelhttp transport wrapper.
+// Use when outbound trace propagation is not desired.
+func WithoutTracing() Option {
+	return func(c *Client) { c.tracingDisabled = true }
 }
 
 // WithTimeout sets the HTTP client timeout.
