@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -17,7 +18,9 @@ const defaultEndpoint = "alloy:4318"
 
 // Init sets up OTel tracing and returns a shutdown function.
 // Returns nil shutdown if tracing is disabled (empty OTEL_EXPORTER_OTLP_ENDPOINT).
-func Init(ctx context.Context, service string) (shutdown func(context.Context) error, err error) {
+// The version argument is exported to Tempo as the service.version resource
+// attribute when non-empty; pass "" to omit it.
+func Init(ctx context.Context, service, version string) (shutdown func(context.Context) error, err error) {
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
 		endpoint = defaultEndpoint
@@ -35,8 +38,12 @@ func Init(ctx context.Context, service string) (shutdown func(context.Context) e
 		return nil, err
 	}
 
+	attrs := []attribute.KeyValue{semconv.ServiceName(service)}
+	if version != "" {
+		attrs = append(attrs, semconv.ServiceVersion(version))
+	}
 	res, err := resource.New(ctx,
-		resource.WithAttributes(semconv.ServiceName(service)),
+		resource.WithAttributes(attrs...),
 	)
 	if err != nil {
 		return nil, err
@@ -48,6 +55,6 @@ func Init(ctx context.Context, service string) (shutdown func(context.Context) e
 	)
 	otel.SetTracerProvider(tp)
 
-	slog.Info("tracing.enabled", "service", service, "endpoint", endpoint)
+	slog.Info("tracing.enabled", "service", service, "version", version, "endpoint", endpoint)
 	return tp.Shutdown, nil
 }
