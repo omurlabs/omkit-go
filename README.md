@@ -126,6 +126,14 @@ recreates the transport each time, loses any circuit-breaker state the
 client accumulates, and breaks trace propagation if the request ctx isn't
 forwarded.
 
+### Options
+
+| Option | Default | Notes |
+|--------|---------|-------|
+| `WithTimeout(d)` | 30s | Request timeout applied to `client.Do`. |
+| `WithServiceToken(tok)` | none | Sets `X-Service-Token` on every outbound request. Only use for clients that talk exclusively to internal Omur services (see rules above). |
+| `WithTransport(rt)` | `http.DefaultTransport` with tuned dial/idle settings | Use when a caller needs custom transport tuning (e.g. solid-sync CSS client). When tracing is enabled, the SDK wraps the provided transport in `otelhttp.NewTransport` so span propagation still works. |
+
 ## Packages
 
 | Package | Purpose |
