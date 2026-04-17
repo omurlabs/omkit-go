@@ -29,6 +29,11 @@ func NewPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("dbpool: parse config: %w", err)
 	}
+	// PgBouncer-compat: stay off server-side prepared statements so swapping
+	// postgres:5432 for pgbouncer:6432 (transaction mode) remains a config-only
+	// change. Extended query protocol + binary params still work; the only
+	// trade-off is a few percent of single-query throughput at large scale.
+	pcfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
 	if cfg.MaxConns > 0 {
 		pcfg.MaxConns = cfg.MaxConns
 	}
