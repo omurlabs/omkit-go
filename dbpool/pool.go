@@ -55,11 +55,30 @@ func New(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("dbpool: parse config: %w", err)
 	}
+	// PgBouncer-compat: see NewPool for rationale.
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("dbpool: connect: %w", err)
 	}
 	return pool, nil
+}
+
+// NewSessionPool builds a pgxpool suitable for sessions.NewPostgresStore.
+//
+// The session pool intentionally does NOT run SET ROLE omur_app on each
+// new connection. Token-based session lookup (Get/Delete) takes an opaque
+// token without knowing the tenant, so SELECT/DELETE under a role subject
+// to the sessions_tenant_isolation RLS policy would silently return zero
+// rows. Connecting as the default omur superuser (which has BYPASSRLS)
+// lets token lookup cross tenants; writes (Put, List) still run inside a
+// transaction that sets app.tenant_id so RLS is honored for multi-tenant
+// mutations.
+//
+// Use this helper when wiring SessionStore in a service's main. For pools
+// that back RLS-enforced app queries, use NewPool with Role="omur_app".
+func NewSessionPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+	return NewPool(ctx, Config{DSN: dsn})
 }
 
 // WithTenant acquires a connection, sets the RLS tenant context, and runs fn.

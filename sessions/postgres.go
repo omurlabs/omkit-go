@@ -12,6 +12,19 @@ import (
 // session has expired.
 var ErrNotFound = errors.New("sessions: not found")
 
+// Contract with respect to Postgres RLS (sessions_tenant_isolation):
+//
+//   - Put and List always work because the tenant is known; both run
+//     inside a transaction that sets app.tenant_id so the policy is
+//     satisfied under any role.
+//   - Get and Delete take the opaque token. If the pool has
+//     SET ROLE omur_app applied, RLS filters the SELECT/DELETE to zero
+//     rows. Build the session pool with NewPool (no SET ROLE; superuser
+//     bypasses RLS) so token lookup crosses tenants.
+//
+// Defense-in-depth: callers that know the expected tenant can call
+// GetForTenant/DeleteForTenant, which verify/scope in-Go so a stolen
+// token can't be used against a different tenant's row.
 type postgresStore struct {
 	pool *pgxpool.Pool
 }
@@ -23,6 +36,16 @@ func NewPostgresStore(pool *pgxpool.Pool) Store {
 }
 
 func (s *postgresStore) Get(ctx context.Context, token string) (*Session, error) {
+	return s.get(ctx, token, "")
+}
+
+// GetForTenant is Get with an expected tenant check. If the stored row's
+// tenant_id doesn't match tenantID, ErrNotFound is returned.
+func (s *postgresStore) GetForTenant(ctx context.Context, token, tenantID string) (*Session, error) {
+	return s.get(ctx, token, tenantID)
+}
+
+func (s *postgresStore) get(ctx context.Context, token, expectedTenant string) (*Session, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT token, tenant_id::text, payload, created_at, expires_at
 		FROM sessions
@@ -34,18 +57,34 @@ func (s *postgresStore) Get(ctx context.Context, token string) (*Session, error)
 		}
 		return nil, err
 	}
+	if expectedTenant != "" && sess.TenantID != expectedTenant {
+		return nil, ErrNotFound
+	}
 	return &sess, nil
 }
 
 func (s *postgresStore) Put(ctx context.Context, sess *Session) error {
-	_, err := s.pool.Exec(ctx, `
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	// Satisfy sessions_tenant_isolation regardless of whether the pool
+	// runs as omur_app or a BYPASSRLS superuser. set_config(..., true)
+	// is transaction-local so it doesn't leak across checkouts.
+	if _, err := tx.Exec(ctx, `SELECT set_config('app.tenant_id', $1, true)`, sess.TenantID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
 		INSERT INTO sessions (token, tenant_id, payload, expires_at)
 		VALUES ($1, $2::uuid, $3, $4)
 		ON CONFLICT (token) DO UPDATE SET
 			payload = EXCLUDED.payload,
 			expires_at = EXCLUDED.expires_at`,
-		sess.Token, sess.TenantID, sess.Payload, sess.ExpiresAt)
-	return err
+		sess.Token, sess.TenantID, sess.Payload, sess.ExpiresAt); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *postgresStore) Delete(ctx context.Context, token string) error {
@@ -53,8 +92,34 @@ func (s *postgresStore) Delete(ctx context.Context, token string) error {
 	return err
 }
 
+// DeleteForTenant deletes a session only if it belongs to tenantID.
+// Preferred over Delete when the caller knows the tenant because it works
+// regardless of whether the pool has SET ROLE omur_app applied.
+func (s *postgresStore) DeleteForTenant(ctx context.Context, token, tenantID string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `SELECT set_config('app.tenant_id', $1, true)`, tenantID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE token = $1 AND tenant_id = $2::uuid`, token, tenantID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 func (s *postgresStore) List(ctx context.Context, tenantID string) ([]*Session, error) {
-	rows, err := s.pool.Query(ctx, `
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `SELECT set_config('app.tenant_id', $1, true)`, tenantID); err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `
 		SELECT token, tenant_id::text, payload, created_at, expires_at
 		FROM sessions
 		WHERE tenant_id = $1::uuid AND expires_at > now()
@@ -71,7 +136,10 @@ func (s *postgresStore) List(ctx context.Context, tenantID string) ([]*Session, 
 		}
 		out = append(out, &sess)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, tx.Commit(ctx)
 }
 
 // Close is a no-op because the pgxpool lifecycle is owned by the caller who
