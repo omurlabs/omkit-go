@@ -2,18 +2,9 @@ package quota
 
 import "time"
 
-// nowUTC is a replaceable clock used by secondsUntilNextMonth.
-// Tests inject a fake via SetNowUTC; production code always uses time.Now().UTC().
+// nowUTC is the package clock. Tests in the same package may reassign it directly.
+// No public setter — avoids race conditions under go test -race.
 var nowUTC = func() time.Time { return time.Now().UTC() }
-
-// SetNowUTC replaces the clock for tests. Pass nil to restore the default.
-func SetNowUTC(fn func() time.Time) {
-	if fn == nil {
-		nowUTC = func() time.Time { return time.Now().UTC() }
-	} else {
-		nowUTC = fn
-	}
-}
 
 func firstOfNextMonth() time.Time {
 	n := nowUTC()
