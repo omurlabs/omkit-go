@@ -116,6 +116,49 @@ func TestMiddleware_AuthentikUID_UnknownUser_NoAutoProvision(t *testing.T) {
 	}
 }
 
+func TestMiddleware_XTenantID_RequiresServiceToken_WhenConfigured(t *testing.T) {
+	// ServiceToken is configured — X-Tenant-ID alone is not trusted.
+	mw := Middleware(MiddlewareConfig{ServiceToken: "secret"})(noopHandler())
+
+	req := httptest.NewRequest("GET", "/api/test", nil)
+	req.Header.Set("X-Tenant-ID", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+	// No X-Service-Token → tenant must be dropped.
+	w := httptest.NewRecorder()
+	mw.ServeHTTP(w, req)
+
+	if got := w.Body.String(); got != "no-tenant" {
+		t.Errorf("X-Tenant-ID without service token: got %q, want no-tenant", got)
+	}
+}
+
+func TestMiddleware_XTenantID_WrongServiceToken_Rejected(t *testing.T) {
+	mw := Middleware(MiddlewareConfig{ServiceToken: "secret"})(noopHandler())
+
+	req := httptest.NewRequest("GET", "/api/test", nil)
+	req.Header.Set("X-Tenant-ID", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+	req.Header.Set("X-Service-Token", "wrong")
+	w := httptest.NewRecorder()
+	mw.ServeHTTP(w, req)
+
+	if got := w.Body.String(); got != "no-tenant" {
+		t.Errorf("X-Tenant-ID with wrong service token: got %q, want no-tenant", got)
+	}
+}
+
+func TestMiddleware_XTenantID_CorrectServiceToken_Accepted(t *testing.T) {
+	mw := Middleware(MiddlewareConfig{ServiceToken: "secret"})(noopHandler())
+
+	req := httptest.NewRequest("GET", "/api/test", nil)
+	req.Header.Set("X-Tenant-ID", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+	req.Header.Set("X-Service-Token", "secret")
+	w := httptest.NewRecorder()
+	mw.ServeHTTP(w, req)
+
+	if got := w.Body.String(); got != "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" {
+		t.Errorf("X-Tenant-ID with service token: got %q, want tenant UUID", got)
+	}
+}
+
 func TestRequire_Returns401_WhenNoTenant(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if tid := Require(w, r); tid == "" {

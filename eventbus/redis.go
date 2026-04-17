@@ -53,6 +53,22 @@ func (b *redisBus) Publish(ctx context.Context, topic string, payload []byte) er
 	return err
 }
 
+// PublishTenant emits a tenant-scoped event on the Redis backend.
+// The Redis bus has no RLS; tenant isolation is a property of the Postgres
+// backend. Here we embed tenant_id in the stream field so subscribers can
+// filter, keeping the Bus contract uniform.
+func (b *redisBus) PublishTenant(ctx context.Context, tenantID, topic string, payload []byte) error {
+	s, err := b.streamFor(topic)
+	if err != nil {
+		return err
+	}
+	_, err = s.Add(ctx, map[string]string{
+		"tenant_id": tenantID,
+		"payload":   string(payload),
+	})
+	return err
+}
+
 func (b *redisBus) Subscribe(ctx context.Context, topic string, handler Handler) error {
 	s, err := b.streamFor(topic)
 	if err != nil {
@@ -74,6 +90,7 @@ func (b *redisBus) Subscribe(ctx context.Context, topic string, handler Handler)
 		for _, m := range msgs {
 			e := &Event{
 				ID:        0,
+				TenantID:  m.Values["tenant_id"],
 				Topic:     topic,
 				Payload:   []byte(m.Values["payload"]),
 				CreatedAt: time.Now(),
