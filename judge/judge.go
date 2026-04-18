@@ -102,7 +102,7 @@ func (j *Judge) Score(ctx context.Context, entry Entry) Result {
 	req := provider.ChatRequest{
 		Model: j.model,
 		Messages: []provider.Message{
-			{Role: "user", Content: prompt},
+			{Role: "user", Content: provider.MessageContent{Text: prompt}},
 		},
 		ResponseFormat: &provider.ResponseFormat{Type: "json_object"},
 	}

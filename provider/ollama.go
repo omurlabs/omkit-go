@@ -92,7 +92,7 @@ func (p *OllamaProvider) ChatCompletion(ctx context.Context, req ChatRequest) (C
 	}
 
 	return ChatResponse{
-		Content:      ollamaResp.Message.Content,
+		Content:      ollamaResp.Message.Content.String(),
 		Model:        ollamaResp.Model,
 		Usage:        usage,
 		FinishReason: ollamaResp.DoneReason,

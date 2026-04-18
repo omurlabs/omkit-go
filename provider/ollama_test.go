@@ -52,7 +52,7 @@ func TestOllama_ChatCompletion(t *testing.T) {
 	req := provider.ChatRequest{
 		Model: "llama3",
 		Messages: []provider.Message{
-			{Role: "user", Content: "hi"},
+			{Role: "user", Content: provider.MessageContent{Text: "hi"}},
 		},
 		ResponseFormat: &provider.ResponseFormat{Type: "json_object"},
 	}
