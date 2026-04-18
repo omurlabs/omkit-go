@@ -12,6 +12,7 @@ import (
 // Event is a single published record.
 type Event struct {
 	ID        int64
+	TenantID  string // empty for global/system events
 	Topic     string
 	Payload   []byte
 	CreatedAt time.Time
@@ -23,7 +24,13 @@ type Handler func(ctx context.Context, e *Event) error
 
 // Bus is the backend-agnostic contract for publishing and subscribing to events.
 type Bus interface {
+	// Publish emits a global/system event (NULL tenant_id). Use
+	// PublishTenant for per-tenant events that must be RLS-isolated.
 	Publish(ctx context.Context, topic string, payload []byte) error
+	// PublishTenant emits an event scoped to a tenant. Subscribers with
+	// the same tenant context will see it; others will not (enforced by
+	// RLS on the Postgres backend).
+	PublishTenant(ctx context.Context, tenantID, topic string, payload []byte) error
 	// Subscribe blocks until ctx is cancelled or Close is called, delivering
 	// events for the given topic to handler one at a time.
 	Subscribe(ctx context.Context, topic string, handler Handler) error

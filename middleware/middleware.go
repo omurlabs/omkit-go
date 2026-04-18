@@ -47,11 +47,21 @@ func matchWildcard(patterns []string, origin string) bool {
 	return false
 }
 
-// BearerAuth validates Authorization: Bearer <token> against expectedToken.
-// Also accepts requests authenticated via Authentik forward-auth (X-Authentik-Uid header).
-// Caddy's forward_auth directive strips X-Authentik-* from external requests before
-// forwarding to Authentik, so this header is trustworthy when present.
+// BearerAuth validates a request using one of:
+//   - Authorization: Bearer <token>            (external client with API token)
+//   - X-Service-Token: <token>                 (internal service-to-service, OR
+//                                               Caddy-injected on forward_auth paths)
+//
+// Caddy MUST inject X-Service-Token on every reverse_proxy to a Go service; this
+// is what authenticates browser-session traffic that uses Authentik forward_auth.
+// X-Authentik-Uid alone is NOT sufficient: a peer on the backend Docker network
+// could otherwise forge it to bypass auth. Tenant resolution from X-Authentik-Uid
+// happens downstream in tenant.Middleware.
+//
 // Skips auth for health/ready endpoints.
+//
+// If token is empty, BearerAuth is a no-op (dev mode). Services should fail-fast
+// at startup rather than rely on that.
 func BearerAuth(token string, next http.Handler) http.Handler {
 	if token == "" {
 		return next
@@ -62,19 +72,12 @@ func BearerAuth(token string, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		// Accept bearer token
 		auth := r.Header.Get("Authorization")
 		if strings.HasPrefix(auth, "Bearer ") && auth[7:] == token {
 			next.ServeHTTP(w, r)
 			return
 		}
-		// Accept X-Service-Token (internal service-to-service)
 		if svcToken := r.Header.Get("X-Service-Token"); svcToken != "" && svcToken == token {
-			next.ServeHTTP(w, r)
-			return
-		}
-		// Accept Authentik forward-auth headers (set by Caddy after forward_auth check)
-		if r.Header.Get("X-Authentik-Uid") != "" {
 			next.ServeHTTP(w, r)
 			return
 		}

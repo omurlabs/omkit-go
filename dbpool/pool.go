@@ -103,6 +103,23 @@ func WithTenant(ctx context.Context, pool *pgxpool.Pool, tenantID string, fn fun
 	return tx.Commit(ctx)
 }
 
+// Superuser acquires a connection without setting a restrictive role, runs fn
+// inside a transaction, and commits. The connection bypasses RLS because the
+// pool user has BYPASSRLS (or is a superuser). Use this only for cross-tenant
+// lookups where the tenant is not yet known (e.g. credential-handle → tenant_id
+// at login time).
+func Superuser(ctx context.Context, pool *pgxpool.Pool, fn func(pgx.Tx) error) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("dbpool: begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 // WithTenantQuery is like WithTenant but for read-only queries that don't need commit.
 func WithTenantQuery(ctx context.Context, pool *pgxpool.Pool, tenantID string, fn func(pgx.Tx) error) error {
 	tx, err := pool.Begin(ctx)

@@ -17,6 +17,9 @@ func TestEventInterface(t *testing.T) {
 type fakeBus struct{}
 
 func (f *fakeBus) Publish(ctx context.Context, topic string, payload []byte) error { return nil }
+func (f *fakeBus) PublishTenant(ctx context.Context, tenantID, topic string, payload []byte) error {
+	return nil
+}
 func (f *fakeBus) Subscribe(ctx context.Context, topic string, handler eventbus.Handler) error {
 	return nil
 }

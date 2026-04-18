@@ -28,11 +28,17 @@ type AutoProvisioner func(ctx context.Context, authUID, email string) (tenantID 
 type MiddlewareConfig struct {
 	Resolve       Resolver
 	AutoProvision AutoProvisioner // optional: auto-create mapping for new users
+	// ServiceToken, if non-empty, gates the X-Tenant-ID header: the request must
+	// also carry X-Service-Token: <ServiceToken> for X-Tenant-ID to be trusted.
+	// This prevents a compromised peer on the backend network from impersonating
+	// any tenant by forging a UUID header. Leave empty in dev/tests.
+	ServiceToken string
 }
 
 // Middleware extracts the tenant ID from request headers and stores it in
 // the request context. Resolution order:
-//  1. X-Tenant-ID (internal service-to-service calls — direct UUID)
+//  1. X-Tenant-ID (internal service-to-service calls — direct UUID). When
+//     ServiceToken is configured, also requires X-Service-Token match.
 //  2. X-Authentik-Uid → Resolver → tenant UUID (browser requests via Caddy)
 //
 // If neither resolves, the request proceeds without tenant context;
@@ -42,8 +48,16 @@ func Middleware(cfg MiddlewareConfig) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Priority 1: explicit X-Tenant-ID (internal calls, smoke tests)
+			// Priority 1: explicit X-Tenant-ID (internal calls, smoke tests).
+			// Require matching X-Service-Token when ServiceToken is configured.
 			tid := r.Header.Get("X-Tenant-ID")
+			if tid != "" && cfg.ServiceToken != "" {
+				if r.Header.Get("X-Service-Token") != cfg.ServiceToken {
+					slog.Warn("tenant.xtenant_id_without_service_token",
+						"tenant_id", tid, "remote_addr", r.RemoteAddr)
+					tid = ""
+				}
+			}
 
 			// Priority 2: Authentik UID → cached DB lookup
 			if tid == "" {
