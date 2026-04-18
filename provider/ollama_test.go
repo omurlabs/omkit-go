@@ -99,6 +99,62 @@ func TestOllama_ChatCompletion(t *testing.T) {
 	}
 }
 
+func TestOllama_ChatCompletion_Multimodal_TranslatesToNativeFormat(t *testing.T) {
+	var capturedBody map[string]any
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		resp := map[string]any{
+			"model": "medgemma",
+			"message": map[string]any{
+				"role":    "assistant",
+				"content": "an image of a tiny pixel",
+			},
+			"done_reason":       "stop",
+			"eval_count":        5,
+			"prompt_eval_count": 3,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	p := provider.NewOllamaProvider(srv.URL)
+	req := provider.ChatRequest{
+		Model: "medgemma",
+		Messages: []provider.Message{{
+			Role: "user",
+			Content: provider.MessageContent{Parts: []provider.ContentPart{
+				{Type: "text", Text: "describe"},
+				{Type: "image_url", ImageURL: &provider.ImageURLObj{URL: "data:image/png;base64,iVBOR=="}},
+			}},
+		}},
+	}
+
+	if _, err := p.ChatCompletion(context.Background(), req); err != nil {
+		t.Fatalf("ChatCompletion error: %v", err)
+	}
+
+	msgs, ok := capturedBody["messages"].([]any)
+	if !ok || len(msgs) != 1 {
+		t.Fatalf("expected 1 message, got %+v", capturedBody["messages"])
+	}
+	msg := msgs[0].(map[string]any)
+	if got := msg["content"]; got != "describe" {
+		t.Errorf("expected content='describe' (text concatenated), got %v", got)
+	}
+	images, ok := msg["images"].([]any)
+	if !ok || len(images) != 1 {
+		t.Fatalf("expected 1 image, got %+v", msg["images"])
+	}
+	if images[0] != "iVBOR==" {
+		t.Errorf("expected base64-stripped payload, got %v", images[0])
+	}
+}
+
 func TestOllama_Embedding(t *testing.T) {
 	var capturedPath string
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // OllamaProvider implements Provider for local Ollama instances.
@@ -25,12 +26,60 @@ func NewOllamaProvider(baseURL string) *OllamaProvider {
 func (p *OllamaProvider) Name() string           { return "ollama" }
 func (p *OllamaProvider) SupportsEmbedding() bool { return true }
 
+// ollamaMessage is the wire format /api/chat expects: content is always a plain
+// string and images are a parallel base64 list. Multimodal OpenAI-style content
+// arrays (ContentPart) are translated into this shape by toOllamaMessages.
+type ollamaMessage struct {
+	Role    string   `json:"role"`
+	Content string   `json:"content"`
+	Images  []string `json:"images,omitempty"`
+}
+
 // ollamaChatRequest is the wire format for /api/chat.
 type ollamaChatRequest struct {
-	Model    string         `json:"model"`
-	Messages []Message      `json:"messages"`
-	Stream   bool           `json:"stream"`
-	Options  map[string]any `json:"options,omitempty"`
+	Model    string          `json:"model"`
+	Messages []ollamaMessage `json:"messages"`
+	Stream   bool            `json:"stream"`
+	Options  map[string]any  `json:"options,omitempty"`
+}
+
+// toOllamaMessages flattens MessageContent into Ollama's native wire format:
+// text parts are concatenated into Content, image_url parts become entries in
+// Images (base64 only — data-URI prefixes are stripped).
+func toOllamaMessages(msgs []Message) []ollamaMessage {
+	out := make([]ollamaMessage, 0, len(msgs))
+	for _, m := range msgs {
+		om := ollamaMessage{Role: m.Role}
+		if !m.Content.IsMultimodal() {
+			om.Content = m.Content.Text
+			out = append(out, om)
+			continue
+		}
+		var textBuilder strings.Builder
+		for _, part := range m.Content.Parts {
+			switch part.Type {
+			case "text":
+				if textBuilder.Len() > 0 {
+					textBuilder.WriteString("\n")
+				}
+				textBuilder.WriteString(part.Text)
+			case "image_url":
+				if part.ImageURL == nil {
+					continue
+				}
+				url := part.ImageURL.URL
+				// Ollama wants raw base64, not data-URIs. Strip any
+				// "data:image/...;base64," prefix.
+				if idx := strings.Index(url, ";base64,"); idx != -1 {
+					url = url[idx+len(";base64,"):]
+				}
+				om.Images = append(om.Images, url)
+			}
+		}
+		om.Content = textBuilder.String()
+		out = append(out, om)
+	}
+	return out
 }
 
 type ollamaChatResponse struct {
@@ -47,7 +96,7 @@ type ollamaChatResponse struct {
 func (p *OllamaProvider) ChatCompletion(ctx context.Context, req ChatRequest) (ChatResponse, error) {
 	body := ollamaChatRequest{
 		Model:    req.Model,
-		Messages: req.Messages,
+		Messages: toOllamaMessages(req.Messages),
 		Stream:   false,
 	}
 
