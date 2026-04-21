@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"sort"
 	"testing"
 )
@@ -101,6 +102,21 @@ func TestRequireRole_Allows_WhenRolePresent(t *testing.T) {
 	}
 	if w.Code != 200 { // recorder default; nothing should be written
 		t.Errorf("status: got %d, want 200 (untouched)", w.Code)
+	}
+}
+
+func TestRolesFromGroups_OmurUsers(t *testing.T) {
+	got := RolesFromGroups([]string{"omur-users"})
+	want := []Role{RoleUser}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("RolesFromGroups(omur-users) = %v, want %v", got, want)
+	}
+}
+
+func TestRolesFromGroups_MultipleGroups_IncludesUser(t *testing.T) {
+	got := RolesFromGroups([]string{"omur-users", "omur-admins"})
+	if !slices.Contains(got, RoleUser) || !slices.Contains(got, RoleAdmin) {
+		t.Fatalf("got %v, want to include RoleUser and RoleAdmin", got)
 	}
 }
 

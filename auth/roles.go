@@ -17,6 +17,7 @@ type Role string
 const (
 	RoleAdmin   Role = "admin"
 	RoleSupport Role = "support"
+	RoleUser    Role = "user"
 )
 
 // groupToRoles is the source of truth for Authentik-group → role mapping.
@@ -25,6 +26,7 @@ const (
 var groupToRoles = map[string][]Role{
 	"omur-admins":  {RoleAdmin},
 	"omur-support": {RoleSupport},
+	"omur-users":   {RoleUser},
 }
 
 // RolesFromGroups returns the deduplicated union of roles granted by the
