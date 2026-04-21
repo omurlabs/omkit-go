@@ -17,7 +17,14 @@ type Role string
 const (
 	RoleAdmin   Role = "admin"
 	RoleSupport Role = "support"
-	RoleUser    Role = "user"
+	// RoleUser covers two distinct actors that land in the same audit
+	// column: (a) omur-users group members, for role-gated admin/settings
+	// features; (b) self-service auth-path events (signup, login, logout,
+	// credential add/delete) where the account owner IS the actor — no
+	// Authentik group is required for that flow because the auth handlers
+	// emit the entry directly. admin_audit_log's CHECK constraint on
+	// `role` must include 'user' for these rows to persist.
+	RoleUser Role = "user"
 )
 
 // groupToRoles is the source of truth for Authentik-group → role mapping.

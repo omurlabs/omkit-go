@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"runtime"
 )
 
 const (
@@ -24,10 +25,15 @@ func NewKUser() (KUser, error) {
 	return k, nil
 }
 
+// Zero overwrites every byte of k with 0. runtime.KeepAlive keeps k
+// observed across the zero loop so the compiler can't treat k as dead
+// and elide the writes — critical for credential material where "we
+// cleared this" must hold even after the caller's last logical use.
 func (k *KUser) Zero() {
 	for i := range k {
 		k[i] = 0
 	}
+	runtime.KeepAlive(k)
 }
 
 func (k *KUser) aead() (cipher.AEAD, error) {
