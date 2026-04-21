@@ -149,17 +149,19 @@ func loadFromPool(ctx context.Context, pool *pgxpool.Pool) (map[string]Flag, err
 		if err := rows.Scan(&key, &raw); err != nil {
 			return nil, err
 		}
-		out[key] = parseFlagJSON(raw)
+		out[key] = ParseFromJSON(raw)
 	}
 	return out, rows.Err()
 }
 
-// parseFlagJSON accepts BOTH the legacy bare-bool shape and the new object
-// shape so Spine can deploy before the rewrap migration runs.
+// ParseFromJSON accepts BOTH the legacy bare-bool shape and the new object
+// shape so Spine can deploy before the rewrap migration runs. Exported so
+// Spine's GET /admin/feature-flags can share the exact same parsing logic
+// the Store uses internally.
 //
 // TODO(remove after migration 010 confirmed applied on every deployed stack):
 // delete the bare-bool branch below.
-func parseFlagJSON(raw []byte) Flag {
+func ParseFromJSON(raw []byte) Flag {
 	// bare bool
 	var b bool
 	if err := json.Unmarshal(raw, &b); err == nil {

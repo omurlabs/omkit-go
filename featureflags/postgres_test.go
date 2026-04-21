@@ -121,21 +121,21 @@ func TestPostgresStore_Invalidate_ForcesReload(t *testing.T) {
 }
 
 func TestParseFlagJSON_BareBool_GrantsAllRoles(t *testing.T) {
-	f := parseFlagJSON([]byte("true"))
+	f := ParseFromJSON([]byte("true"))
 	if !f.Enabled || len(f.Roles) != 3 {
 		t.Fatalf("want Enabled=true, 3 roles; got %+v", f)
 	}
 }
 
 func TestParseFlagJSON_Object(t *testing.T) {
-	f := parseFlagJSON([]byte(`{"enabled":true,"roles":["admin","user"]}`))
+	f := ParseFromJSON([]byte(`{"enabled":true,"roles":["admin","user"]}`))
 	if !f.Enabled || len(f.Roles) != 2 || f.Roles[0] != auth.RoleAdmin || f.Roles[1] != auth.RoleUser {
 		t.Fatalf("unexpected parse: %+v", f)
 	}
 }
 
 func TestParseFlagJSON_Malformed_Disabled(t *testing.T) {
-	f := parseFlagJSON([]byte("{not-json}"))
+	f := ParseFromJSON([]byte("{not-json}"))
 	if f.Enabled {
 		t.Fatal("malformed JSON must disable the flag")
 	}
