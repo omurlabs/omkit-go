@@ -181,6 +181,33 @@ func Superuser(ctx context.Context, pool *pgxpool.Pool, fn func(pgx.Tx) error) e
 	return tx.Commit(ctx)
 }
 
+// WithPrivilegedRole acquires a connection, SET LOCAL ROLE to the given
+// privileged role inside a transaction, runs fn, and commits. Use this to
+// execute a small, well-bounded operation (e.g. credential DELETE) under
+// a role that has grants omur_app lacks.
+//
+// The role change is transaction-local (SET LOCAL), so it reverts on
+// commit/rollback and doesn't leak to the next caller who checks out the
+// pooled connection. The caller is responsible for setting app.tenant_id
+// inside fn if the privileged role is subject to RLS — the helper does
+// NOT set a tenant context because the right tenant is often caller-known
+// and we want to keep one concern per helper.
+func WithPrivilegedRole(ctx context.Context, pool *pgxpool.Pool, role string, fn func(pgx.Tx) error) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("dbpool: begin: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	stmt := "SET LOCAL ROLE " + pgx.Identifier{role}.Sanitize()
+	if _, err := tx.Exec(ctx, stmt); err != nil {
+		return fmt.Errorf("dbpool: set local role %q: %w", role, err)
+	}
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 // WithTenantQuery is like WithTenant but for read-only queries that don't need commit.
 func WithTenantQuery(ctx context.Context, pool *pgxpool.Pool, tenantID string, fn func(pgx.Tx) error) error {
 	tx, err := pool.Begin(ctx)
