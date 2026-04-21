@@ -81,3 +81,28 @@ func TestBearerAuth_EmptyTokenIsNoop(t *testing.T) {
 		t.Fatalf("empty token disables BearerAuth: got %d, want 200", w.Code)
 	}
 }
+
+func TestMustBearerAuth_EmptyTokenPanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("MustBearerAuth with empty token: expected panic, got nil")
+		}
+	}()
+	MustBearerAuth("", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+}
+
+func TestMustBearerAuth_SetTokenDelegates(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(200)
+	})
+	h := MustBearerAuth("secret", next)
+
+	req := httptest.NewRequest("GET", "/protected", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status: got %d, want 200", w.Code)
+	}
+}
