@@ -17,6 +17,12 @@ type Role string
 const (
 	RoleAdmin   Role = "admin"
 	RoleSupport Role = "support"
+	// RoleUser is the self-service actor on auth-path audit rows (signup,
+	// login, logout, credential add/delete). Not granted by any Authentik
+	// group — the auth handlers emit audit entries with this value directly
+	// because the account owner IS the actor. admin_audit_log's CHECK
+	// constraint on `role` must include 'user' for these rows to persist.
+	RoleUser Role = "user"
 )
 
 // groupToRoles is the source of truth for Authentik-group → role mapping.

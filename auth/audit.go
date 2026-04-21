@@ -60,13 +60,18 @@ func WriteAuditEntry(ctx context.Context, pool *pgxpool.Pool, r *http.Request, e
 		actorUID = "service" // service-token callers
 	}
 
-	var diffJSON []byte
+	// Marshal to a STRING (not []byte) so the value round-trips regardless
+	// of the pool's QueryExecMode: under simple-protocol mode (dbpool.New's
+	// default, for PgBouncer compat) a []byte is encoded as a bytea hex
+	// literal and the server rejects it as jsonb. A string argument is
+	// emitted as a standard text literal and cast into jsonb by the column.
+	var diffParam any
 	if e.Diff != nil {
-		var err error
-		diffJSON, err = json.Marshal(e.Diff)
+		b, err := json.Marshal(e.Diff)
 		if err != nil {
 			return fmt.Errorf("audit: marshal diff: %w", err)
 		}
+		diffParam = string(b)
 	}
 
 	_, err := pool.Exec(ctx,
@@ -80,7 +85,7 @@ func WriteAuditEntry(ctx context.Context, pool *pgxpool.Pool, r *http.Request, e
 		e.Action,
 		nullableString(e.TargetKind),
 		nullableString(e.TargetID),
-		diffJSON, // pgx encodes nil []byte as SQL NULL for JSONB columns
+		diffParam, // nil → SQL NULL; otherwise a JSON string cast to jsonb
 		nullableString(traceID(ctx)),
 		nullableString(clientIP(r)),
 		nullableHeader(r, "User-Agent"),
