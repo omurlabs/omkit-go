@@ -1,0 +1,62 @@
+[
+  {
+    "kek_hex": "4a2b60aafb1e4cd74569d593a5642f41ac739834658cc036b6bb8a627a5bbb16",
+    "aad": "omur-wrap-v1",
+    "plaintext": "short",
+    "blob_hex": "23903788a22a53d74b4b132ce609e3061478e5b50164c4b270c5a0af69df975397"
+  },
+  {
+    "kek_hex": "068f0c3be95d0b0bea6c0dbe8721eb994f058f5aa99a1c0c26a07cf8a16d7423",
+    "aad": "omur-wrap-password-v1",
+    "plaintext": "omur-kuser-bytes-00000000000000x",
+    "blob_hex": "3d7ded47717905101235951fcf401501e374623060bf324956924b0ca91b007691f4b1618a119d6e98e36e09f606aed765a2beee691dcfe16ce05290"
+  },
+  {
+    "kek_hex": "98686e999272090241221d541a2688c4ff2d9930dde2f7faf39b36ceef8d3b5b",
+    "aad": "omur-passkey-prf-v1",
+    "plaintext": "secret-payload-001",
+    "blob_hex": "905f49a2e9377d37aacffb308153efef515eecda0456c0c92bf5f5b32baaeb6a60a8fdbd04349caa248b54a36142"
+  },
+  {
+    "kek_hex": "17357ed5140b85284a8b4f5d51975be858a9a7ee28b35e1e9c26e6a559075498",
+    "aad": "omur-col-meta-v1",
+    "plaintext": "secret-payload-002",
+    "blob_hex": "20ba26ec9b000588830103ed589871e14ec0eea06e5572385859315866c893020f42e04fc7840bdf866bbeba8940"
+  },
+  {
+    "kek_hex": "14cbb003abe3750c334881f75c1e68d3cdd94b8cb150ef291ee8b4dc08e702ad",
+    "aad": "omur-col-metrics-v1",
+    "plaintext": "column-blob-meta-1",
+    "blob_hex": "0c944e70c0ee4a237d00ad195c56d545267548d774631453f325ed084596653e80a0f9ae3e0951f0490ea557aca9"
+  },
+  {
+    "kek_hex": "020d9d04fa52d1c392f9f5b022d1d7369a9e7ac24d277fb8e4742327082c9f22",
+    "aad": "omur-col-content-v1",
+    "plaintext": "column-blob-metrics-1",
+    "blob_hex": "1576151e1271f158bcdc49a3dd3ea5ffcf78d1b294ca3f58bc40744efd7cf46d0fa3adacc037def473b12eceed6934730d"
+  },
+  {
+    "kek_hex": "4397c27648be10383ef7293218c3b31edaa96facf7e027ff236b850c01f07cdc",
+    "aad": "omur-col-embeddings-v1",
+    "plaintext": "column-blob-content-long-ish-payload-that-is-longer",
+    "blob_hex": "1cec8ab9550244997b0b0e85a9e9ef69a2752aadca18636fcf018176385bcc44326f5087683e971f7467403f2da38026c9a4e43c0f1637a9adc66bcd468d4cbc96810c38ac31918e44a25f8956a254"
+  },
+  {
+    "kek_hex": "a40289e58f00f993e6bd51f24686227f9c8af37f80357f1367a8ddbf06847f42",
+    "aad": "OMUR-BACKUP-STUB-V1",
+    "plaintext": "backup-stub",
+    "blob_hex": "f3388ef621d491376c1ebda8dd4fa25a6d9ca1375a1d90c95308d81cadc37f179347e3e8a0472c"
+  },
+  {
+    "kek_hex": "3c6fa8814fc0ab47d862c6585f9590e9cb2f24d722a86fd498f64cebe50042d5",
+    "aad": "omur-social-v1:google:sub-abc",
+    "plaintext": "social-user-k-google",
+    "blob_hex": "5c3104c555eddf829195d05b2d395fd6fc637381f8ca1b9fdbcfbb715a83fe11a26fe35576be98ecc5690e766defb90f"
+  },
+  {
+    "kek_hex": "b3af64b287d28fad7e8b979263a4ef73de1bf5f75d1da7a02f1863f68117405a",
+    "aad": "omur-social-v1:apple:sub-xyz",
+    "plaintext": "social-user-k-apple",
+    "blob_hex": "c32e56c524421c67d2efc98c37ec1815c9a3231b082de245af5380dea612d096dc3e7e450adab29848872298cc4b14"
+  }
+]
