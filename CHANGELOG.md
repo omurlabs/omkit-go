@@ -4,6 +4,20 @@ The Go SDK uses the repo's commit SHA as its "version"; it is vendored by
 services through the workspace go.work file rather than released to a
 registry. This changelog tracks meaningful API additions/changes.
 
+## Unreleased
+
+### Added
+
+- `crypto/` package: `Wrap`/`Unwrap` AES-256-GCM helpers, `KUser` session key
+  type, and AAD purpose-string constants (`AADMeta`, `AADMetrics`,
+  `AADContent`, `AADEmbeddingsChunks`) extracted from `services/spine/auth`.
+  Byte-for-byte compatible with existing ciphertexts (pinned by
+  `TestGoldenVectorUnwrap` and `TestLegacyBlobsDecrypt`).
+- `kms/` package: `KMS` interface (now with `CurrentVersion(ctx, keyID)
+  (string, error)` for rotation bookkeeping) and `LocalDevKMS` dev adapter
+  extracted from `services/spine/auth`. Cloud adapters (AWS KMS, GCP KMS,
+  Vault Transit) implement the same interface.
+
 ## 2026-04-17 — Plan 1 SDK consolidation
 
 ### Added
