@@ -39,7 +39,9 @@ func TestAdminMiddleware_ParsesAdminGroup(t *testing.T) {
 	w := httptest.NewRecorder()
 	mw.ServeHTTP(w, req)
 
-	want := []auth.Role{auth.RoleAdmin}
+	// omur-users now maps to RoleUser (role-scoped feature flags); admin+user
+	// is the correct union for an admin who also sits in the plain-user group.
+	want := []auth.Role{auth.RoleAdmin, auth.RoleUser}
 	if !reflect.DeepEqual(sortedRoles(got), want) {
 		t.Errorf("roles: got %v, want %v", got, want)
 	}
@@ -84,7 +86,10 @@ func TestAdminMiddleware_UnknownGroupsIgnored(t *testing.T) {
 	mw := AdminMiddleware(AdminConfig{ServiceToken: "secret"})(captureHandler(&got))
 
 	req := httptest.NewRequest("GET", "/admin/x", nil)
-	req.Header.Set("X-Authentik-Groups", "tenant-default|omur-users")
+	// tenant-default is unknown; garbage-group is unknown; only those should
+	// be ignored. We deliberately do NOT include omur-users here because
+	// that group now maps to a real role.
+	req.Header.Set("X-Authentik-Groups", "tenant-default|garbage-group")
 	req.Header.Set("X-Service-Token", "secret")
 	req.Header.Set("X-Authentik-Uid", "user-pk-42")
 
