@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 // stubResolver returns a fixed tenant ID for any auth UID.
@@ -156,6 +157,66 @@ func TestMiddleware_XTenantID_CorrectServiceToken_Accepted(t *testing.T) {
 
 	if got := w.Body.String(); got != "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" {
 		t.Errorf("X-Tenant-ID with service token: got %q, want tenant UUID", got)
+	}
+}
+
+func TestUIDCache_Expires(t *testing.T) {
+	c := newUIDCache(50 * time.Millisecond)
+	c.set("uid1", "tenant1")
+	if got := c.get("uid1"); got != "tenant1" {
+		t.Fatalf("fresh entry: got %q, want %q", got, "tenant1")
+	}
+	time.Sleep(75 * time.Millisecond)
+	if got := c.get("uid1"); got != "" {
+		t.Fatalf("expired entry: got %q, want empty", got)
+	}
+}
+
+func TestUIDCache_Refreshes(t *testing.T) {
+	c := newUIDCache(100 * time.Millisecond)
+	c.set("uid1", "tenant1")
+	time.Sleep(60 * time.Millisecond)
+	c.set("uid1", "tenant1") // re-set resets TTL
+	time.Sleep(60 * time.Millisecond)
+	if got := c.get("uid1"); got != "tenant1" {
+		t.Fatalf("refreshed entry: got %q, want %q", got, "tenant1")
+	}
+}
+
+func TestMiddleware_CacheRevocation(t *testing.T) {
+	calls := 0
+	resolver := func(_ context.Context, uid string) (string, error) {
+		calls++
+		return "tenant-" + uid, nil
+	}
+	mw := Middleware(MiddlewareConfig{
+		Resolve:  resolver,
+		CacheTTL: 50 * time.Millisecond,
+	})(noopHandler())
+
+	req := func() *http.Request {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.Header.Set("X-Authentik-Uid", "alice")
+		return r
+	}
+
+	w1 := httptest.NewRecorder()
+	mw.ServeHTTP(w1, req())
+	if calls != 1 {
+		t.Fatalf("first call: resolver hit %d times, want 1", calls)
+	}
+
+	w2 := httptest.NewRecorder()
+	mw.ServeHTTP(w2, req())
+	if calls != 1 {
+		t.Fatalf("cached call: resolver hit %d times, want still 1", calls)
+	}
+
+	time.Sleep(75 * time.Millisecond)
+	w3 := httptest.NewRecorder()
+	mw.ServeHTTP(w3, req())
+	if calls != 2 {
+		t.Fatalf("post-expiry call: resolver hit %d times, want 2", calls)
 	}
 }
 

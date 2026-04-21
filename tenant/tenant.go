@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sync"
+	"time"
 )
 
 type ctxKey struct{}
@@ -33,6 +34,9 @@ type MiddlewareConfig struct {
 	// This prevents a compromised peer on the backend network from impersonating
 	// any tenant by forging a UUID header. Leave empty in dev/tests.
 	ServiceToken string
+	// CacheTTL bounds how long auth_uid → tenant_id entries live in the
+	// in-memory cache. Zero means default (5 minutes).
+	CacheTTL time.Duration
 }
 
 // Middleware extracts the tenant ID from request headers and stores it in
@@ -44,7 +48,7 @@ type MiddlewareConfig struct {
 // If neither resolves, the request proceeds without tenant context;
 // handlers must check via Require().
 func Middleware(cfg MiddlewareConfig) func(http.Handler) http.Handler {
-	cache := &uidCache{m: map[string]string{}}
+	cache := newUIDCache(cfg.CacheTTL)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -120,20 +124,52 @@ func Require(w http.ResponseWriter, r *http.Request) string {
 	return tid
 }
 
-// uidCache is a simple in-memory cache for auth_uid → tenant_id mappings.
+// uidCache is a TTL-bounded in-memory cache for auth_uid → tenant_id mappings.
+// Entries expire so revoked Authentik users stop authenticating automatically
+// once their mapping ages past the TTL (default 5 minutes via MiddlewareConfig).
 type uidCache struct {
-	mu sync.RWMutex
-	m  map[string]string
+	mu  sync.RWMutex
+	m   map[string]uidCacheEntry
+	ttl time.Duration
+}
+
+type uidCacheEntry struct {
+	tenantID string
+	expires  time.Time
+}
+
+func newUIDCache(ttl time.Duration) *uidCache {
+	if ttl <= 0 {
+		ttl = 5 * time.Minute
+	}
+	return &uidCache{m: map[string]uidCacheEntry{}, ttl: ttl}
 }
 
 func (c *uidCache) get(authUID string) string {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.m[authUID]
+	entry, ok := c.m[authUID]
+	c.mu.RUnlock()
+	if !ok {
+		return ""
+	}
+	if time.Now().After(entry.expires) {
+		c.mu.Lock()
+		// Double-check under write lock before deleting so a concurrent
+		// refresh isn't lost.
+		if cur, ok := c.m[authUID]; ok && time.Now().After(cur.expires) {
+			delete(c.m, authUID)
+		}
+		c.mu.Unlock()
+		return ""
+	}
+	return entry.tenantID
 }
 
 func (c *uidCache) set(authUID, tenantID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.m[authUID] = tenantID
+	c.m[authUID] = uidCacheEntry{
+		tenantID: tenantID,
+		expires:  time.Now().Add(c.ttl),
+	}
 }
