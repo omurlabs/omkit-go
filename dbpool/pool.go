@@ -4,10 +4,47 @@ package dbpool
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// poolRoles tracks the AfterConnect role for pools built via NewPool, so that
+// WithTenant / WithTenantQuery use the same role name when setting up the
+// transaction. Legacy New (no Role) returns "" via PoolRole and WithTenant
+// falls back to the historical "omur_app" default.
+var (
+	poolRolesMu sync.RWMutex
+	poolRoles   = map[*pgxpool.Pool]string{}
+)
+
+func rememberRole(p *pgxpool.Pool, role string) {
+	if role == "" {
+		return
+	}
+	poolRolesMu.Lock()
+	poolRoles[p] = role
+	poolRolesMu.Unlock()
+}
+
+// PoolRole returns the role configured for a pool via NewPool, or "" when the
+// pool was built with the legacy New constructor (no role set).
+func PoolRole(p *pgxpool.Pool) string {
+	if p == nil {
+		return ""
+	}
+	poolRolesMu.RLock()
+	defer poolRolesMu.RUnlock()
+	return poolRoles[p]
+}
+
+func roleForPool(p *pgxpool.Pool) string {
+	if r := PoolRole(p); r != "" {
+		return r
+	}
+	return "omur_app"
+}
 
 // Config configures a pool created via NewPool.
 type Config struct {
@@ -44,12 +81,25 @@ func NewPool(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
 			return err
 		}
 	}
-	return pgxpool.NewWithConfig(ctx, pcfg)
+	pool, err := pgxpool.NewWithConfig(ctx, pcfg)
+	if err != nil {
+		return nil, err
+	}
+	rememberRole(pool, cfg.Role)
+	return pool, nil
 }
 
-// New creates a pgx connection pool from a DSN string.
-// Deprecated: prefer NewPool which accepts a Config and sets the application role
-// on every new connection via AfterConnect. Retained for existing callers.
+// New creates a pgx connection pool from a DSN string without SET ROLE.
+//
+// Deprecated: prefer NewPool with a Config.Role. Callers that keep using
+// this constructor run as the connecting role (typically superuser), which
+// BYPASSes RLS. The only supported use is cross-tenant aggregation where
+// that bypass is intentional (e.g. services/pulse). Every other call site
+// should migrate to NewPool(Role: "omur_app"). Retained for existing
+// superuser-intentional callers; new code MUST NOT use it.
+//
+// Static analysis: this decl carries the canonical SA1019 `Deprecated:`
+// prefix so staticcheck flags new usages.
 func New(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
@@ -90,7 +140,8 @@ func WithTenant(ctx context.Context, pool *pgxpool.Pool, tenantID string, fn fun
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, "SET ROLE omur_app"); err != nil {
+	role := roleForPool(pool)
+	if _, err := tx.Exec(ctx, "SET ROLE "+pgx.Identifier{role}.Sanitize()); err != nil {
 		return fmt.Errorf("dbpool: set role: %w", err)
 	}
 	if _, err := tx.Exec(ctx, "SELECT set_config('app.tenant_id', $1, true)", tenantID); err != nil {
@@ -128,7 +179,8 @@ func WithTenantQuery(ctx context.Context, pool *pgxpool.Pool, tenantID string, f
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, "SET ROLE omur_app"); err != nil {
+	role := roleForPool(pool)
+	if _, err := tx.Exec(ctx, "SET ROLE "+pgx.Identifier{role}.Sanitize()); err != nil {
 		return fmt.Errorf("dbpool: set role: %w", err)
 	}
 	if _, err := tx.Exec(ctx, "SELECT set_config('app.tenant_id', $1, true)", tenantID); err != nil {
