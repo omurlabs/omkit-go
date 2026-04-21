@@ -106,8 +106,14 @@ func (s *PostgresStore) Invalidate(key string) {
 
 // AllFlags returns the current cached map. Used by endpoints that need to
 // enumerate all known flags (e.g. /feature-flags/me). Returns a snapshot
-// that callers must not mutate.
+// that callers must not mutate. Triggers a background refresh when the
+// cache is stale so Invalidate+TTL still converges here — without this
+// kick, /feature-flags/me (which never calls Get) would serve a map with
+// Invalidated keys missing until something else refreshed.
 func (s *PostgresStore) AllFlags() map[string]Flag {
+	if s.stale() {
+		go s.tryRefresh()
+	}
 	m := s.ptr.Load()
 	if m == nil {
 		return nil
