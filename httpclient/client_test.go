@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/omurlabs/omur-core/packages/omur-go-sdk/httpclient"
+	"github.com/omurlabs/omur-core/packages/omur-go-sdk/tenant"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -421,4 +422,44 @@ func TestNew_WithoutTracing_NoTraceparent(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
+}
+
+func TestWithTenantHeaderFromContext(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("X-Tenant-ID")
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithTenantHeaderFromContext())
+	ctx := tenant.NewContextForTest(context.Background(), "tenant-123")
+
+	resp, err := c.PostJSON(ctx, srv.URL, map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if got != "tenant-123" {
+		t.Fatalf("X-Tenant-ID: got %q, want %q", got, "tenant-123")
+	}
+}
+
+func TestWithTenantHeaderFromContext_EmptyCtxIsNoop(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("X-Tenant-ID")
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	c := httpclient.New(httpclient.WithTenantHeaderFromContext())
+	resp, err := c.PostJSON(context.Background(), srv.URL, map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if got != "" {
+		t.Fatalf("X-Tenant-ID on empty ctx: got %q, want empty", got)
+	}
 }

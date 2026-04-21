@@ -112,6 +112,14 @@ func FromRequest(r *http.Request) string {
 	return FromContext(r.Context())
 }
 
+// NewContextForTest returns ctx with the given tenant ID installed in the
+// SDK's private context key. Intended for tests that need to exercise
+// downstream helpers (e.g. httpclient.WithTenantHeaderFromContext) without
+// running the full middleware stack.
+func NewContextForTest(ctx context.Context, tenantID string) context.Context {
+	return context.WithValue(ctx, ctxKey{}, tenantID)
+}
+
 // Require returns the tenant ID or writes a 401 error and returns "".
 // Handlers should check: if tid := tenant.Require(w, r); tid == "" { return }
 func Require(w http.ResponseWriter, r *http.Request) string {
