@@ -174,3 +174,48 @@ func TestAdminMiddleware_EmptyServiceTokenConfig_DisablesShortCircuit(t *testing
 		t.Errorf("empty service-token config: got %v, want no roles", got)
 	}
 }
+
+func TestAdminMiddlewareZitadelHeaders(t *testing.T) {
+	cfg := AdminConfig{
+		ServiceToken: "svc-token",
+		IDPMode:      "zitadel",
+	}
+	mw := AdminMiddleware(cfg)
+
+	// Browser request under Zitadel — carries both X-Service-Token (Caddy-injected)
+	// and X-Auth-Request-User. Must NOT be treated as service-to-service.
+	req := httptest.NewRequest("GET", "/admin/x", nil)
+	req.Header.Set("X-Service-Token", "svc-token")
+	req.Header.Set("X-Auth-Request-User", "198261369861120001")
+	// NOTE: plan §Task 3.6 text used "omur-admin|omur-user" (singular) but
+	// the existing role catalog in packages/omur-go-sdk/auth/roles.go only
+	// recognizes "omur-admins"/"omur-users" (plural). Group-name rename is
+	// infra work (spec §Roles) that will land with Zitadel role provisioning.
+	// Using plural keys here lets the test exercise the IDPMode header
+	// dispatch without depending on the deferred rename.
+	req.Header.Set("X-Auth-Request-Groups", "omur-admins|omur-users")
+
+	var gotRoles []auth.Role
+	h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotRoles = auth.RolesFromContext(r.Context())
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Expect header-derived roles (omur-admin only from the groups), NOT the
+	// service-token short-circuit [admin, support] pair.
+	if containsRole(gotRoles, auth.RoleSupport) {
+		t.Errorf("browser request under zitadel should not get service-token roles: %v", gotRoles)
+	}
+	if !containsRole(gotRoles, auth.RoleAdmin) {
+		t.Errorf("expected RoleAdmin from groups header, got %v", gotRoles)
+	}
+}
+
+func containsRole(rs []auth.Role, want auth.Role) bool {
+	for _, r := range rs {
+		if r == want {
+			return true
+		}
+	}
+	return false
+}
