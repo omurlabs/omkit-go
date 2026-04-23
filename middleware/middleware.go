@@ -53,10 +53,10 @@ func matchWildcard(patterns []string, origin string) bool {
 //                                               Caddy-injected on forward_auth paths)
 //
 // Caddy MUST inject X-Service-Token on every reverse_proxy to a Go service; this
-// is what authenticates browser-session traffic that uses Authentik forward_auth.
-// X-Authentik-Uid alone is NOT sufficient: a peer on the backend Docker network
-// could otherwise forge it to bypass auth. Tenant resolution from X-Authentik-Uid
-// happens downstream in tenant.Middleware.
+// is what authenticates browser-session traffic that uses Zitadel forward_auth.
+// X-Auth-Request-User alone is NOT sufficient: a peer on the backend Docker
+// network could otherwise forge it to bypass auth. Tenant resolution from
+// X-Auth-Request-User happens downstream in tenant.Middleware.
 //
 // Skips auth for health/ready endpoints.
 //

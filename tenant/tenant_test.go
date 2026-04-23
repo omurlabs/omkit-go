@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-// stubResolver returns a fixed tenant ID for any auth UID.
-func stubResolver(tenantID string) Resolver {
-	return func(_ context.Context, _ string) (string, error) {
+// stubResolver returns a fixed tenant ID for any (source, auth UID).
+func stubResolver(tenantID string) SourceAwareResolver {
+	return func(_ context.Context, _ string, _ string) (string, error) {
 		return tenantID, nil
 	}
 }
@@ -40,7 +40,7 @@ func mustMW(t *testing.T, cfg MiddlewareConfig) func(http.Handler) http.Handler 
 }
 
 func TestMiddleware_XTenantID_Direct(t *testing.T) {
-	mw := mustMW(t, MiddlewareConfig{IDPMode: IDPModeAuthentik})(noopHandler())
+	mw := mustMW(t, MiddlewareConfig{})(noopHandler())
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	req.Header.Set("X-Tenant-ID", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
@@ -52,32 +52,52 @@ func TestMiddleware_XTenantID_Direct(t *testing.T) {
 	}
 }
 
-func TestMiddleware_AuthentikUID_Resolved(t *testing.T) {
+func TestMiddleware_ZitadelUID_Resolved(t *testing.T) {
 	mw := mustMW(t, MiddlewareConfig{
-		IDPMode: IDPModeAuthentik,
-		Resolve: stubResolver("11111111-2222-3333-4444-555555555555"),
+		ResolveV2: stubResolver("11111111-2222-3333-4444-555555555555"),
 	})(noopHandler())
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
-	req.Header.Set("X-Authentik-Uid", "auth-pk-123")
+	req.Header.Set("X-Auth-Request-User", "zitadel-sub-123")
 	w := httptest.NewRecorder()
 	mw.ServeHTTP(w, req)
 
 	if got := w.Body.String(); got != "11111111-2222-3333-4444-555555555555" {
-		t.Errorf("Authentik UID: got %q, want resolved tenant", got)
+		t.Errorf("Zitadel UID: got %q, want resolved tenant", got)
 	}
 }
 
-func TestMiddleware_XTenantID_TakesPrecedence_OverAuthentik(t *testing.T) {
-	// If both X-Tenant-ID and X-Authentik-Uid are set, X-Tenant-ID wins.
+func TestMiddleware_ResolverGetsZitadelSource(t *testing.T) {
+	var gotSource, gotAuthUID string
+	cfg := MiddlewareConfig{
+		ResolveV2: func(_ context.Context, source, authUID string) (string, error) {
+			gotSource, gotAuthUID = source, authUID
+			return "tenant-id", nil
+		},
+	}
+	mw := mustMW(t, cfg)(noopHandler())
+
+	req := httptest.NewRequest("GET", "/api/test", nil)
+	req.Header.Set("X-Auth-Request-User", "198261369861120001")
+	mw.ServeHTTP(httptest.NewRecorder(), req)
+
+	if gotSource != "zitadel" {
+		t.Errorf("source = %q, want zitadel", gotSource)
+	}
+	if gotAuthUID != "198261369861120001" {
+		t.Errorf("authUID = %q, want 198261369861120001", gotAuthUID)
+	}
+}
+
+func TestMiddleware_XTenantID_TakesPrecedence_OverZitadel(t *testing.T) {
+	// If both X-Tenant-ID and X-Auth-Request-User are set, X-Tenant-ID wins.
 	mw := mustMW(t, MiddlewareConfig{
-		IDPMode: IDPModeAuthentik,
-		Resolve: stubResolver("should-not-see-this"),
+		ResolveV2: stubResolver("should-not-see-this"),
 	})(noopHandler())
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	req.Header.Set("X-Tenant-ID", "direct-tenant-id")
-	req.Header.Set("X-Authentik-Uid", "auth-pk-123")
+	req.Header.Set("X-Auth-Request-User", "zitadel-sub-123")
 	w := httptest.NewRecorder()
 	mw.ServeHTTP(w, req)
 
@@ -87,7 +107,7 @@ func TestMiddleware_XTenantID_TakesPrecedence_OverAuthentik(t *testing.T) {
 }
 
 func TestMiddleware_NoHeaders_NoTenant(t *testing.T) {
-	mw := mustMW(t, MiddlewareConfig{IDPMode: IDPModeAuthentik})(noopHandler())
+	mw := mustMW(t, MiddlewareConfig{})(noopHandler())
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	w := httptest.NewRecorder()
@@ -98,30 +118,29 @@ func TestMiddleware_NoHeaders_NoTenant(t *testing.T) {
 	}
 }
 
-func TestMiddleware_FakeAuthentikUID_WithoutResolver_NoTenant(t *testing.T) {
-	// C2 scenario: attacker sends forged X-Authentik-Uid but no resolver is set.
+func TestMiddleware_FakeZitadelUID_WithoutResolver_NoTenant(t *testing.T) {
+	// Attacker sends forged X-Auth-Request-User but no resolver is set.
 	// Middleware must NOT trust the header value as a tenant ID directly.
-	mw := mustMW(t, MiddlewareConfig{IDPMode: IDPModeAuthentik})(noopHandler())
+	mw := mustMW(t, MiddlewareConfig{})(noopHandler())
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
-	req.Header.Set("X-Authentik-Uid", "attacker-forged-uid")
+	req.Header.Set("X-Auth-Request-User", "attacker-forged-uid")
 	w := httptest.NewRecorder()
 	mw.ServeHTTP(w, req)
 
 	if got := w.Body.String(); got != "no-tenant" {
-		t.Errorf("forged Authentik UID without resolver: got %q, want no-tenant", got)
+		t.Errorf("forged UID without resolver: got %q, want no-tenant", got)
 	}
 }
 
-func TestMiddleware_AuthentikUID_UnknownUser_NoAutoProvision(t *testing.T) {
+func TestMiddleware_ZitadelUID_UnknownUser_NoAutoProvision(t *testing.T) {
 	// Resolver returns empty (unknown user), no auto-provisioner → no tenant.
 	mw := mustMW(t, MiddlewareConfig{
-		IDPMode: IDPModeAuthentik,
-		Resolve: stubResolver(""),
+		ResolveV2: stubResolver(""),
 	})(noopHandler())
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
-	req.Header.Set("X-Authentik-Uid", "unknown-user-pk")
+	req.Header.Set("X-Auth-Request-User", "unknown-user-sub")
 	w := httptest.NewRecorder()
 	mw.ServeHTTP(w, req)
 
@@ -132,7 +151,7 @@ func TestMiddleware_AuthentikUID_UnknownUser_NoAutoProvision(t *testing.T) {
 
 func TestMiddleware_XTenantID_RequiresServiceToken_WhenConfigured(t *testing.T) {
 	// ServiceToken is configured — X-Tenant-ID alone is not trusted.
-	mw := mustMW(t, MiddlewareConfig{IDPMode: IDPModeAuthentik, ServiceToken: "secret"})(noopHandler())
+	mw := mustMW(t, MiddlewareConfig{ServiceToken: "secret"})(noopHandler())
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	req.Header.Set("X-Tenant-ID", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
@@ -146,7 +165,7 @@ func TestMiddleware_XTenantID_RequiresServiceToken_WhenConfigured(t *testing.T) 
 }
 
 func TestMiddleware_XTenantID_WrongServiceToken_Rejected(t *testing.T) {
-	mw := mustMW(t, MiddlewareConfig{IDPMode: IDPModeAuthentik, ServiceToken: "secret"})(noopHandler())
+	mw := mustMW(t, MiddlewareConfig{ServiceToken: "secret"})(noopHandler())
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	req.Header.Set("X-Tenant-ID", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
@@ -160,7 +179,7 @@ func TestMiddleware_XTenantID_WrongServiceToken_Rejected(t *testing.T) {
 }
 
 func TestMiddleware_XTenantID_CorrectServiceToken_Accepted(t *testing.T) {
-	mw := mustMW(t, MiddlewareConfig{IDPMode: IDPModeAuthentik, ServiceToken: "secret"})(noopHandler())
+	mw := mustMW(t, MiddlewareConfig{ServiceToken: "secret"})(noopHandler())
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	req.Header.Set("X-Tenant-ID", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
@@ -175,55 +194,56 @@ func TestMiddleware_XTenantID_CorrectServiceToken_Accepted(t *testing.T) {
 
 func TestUIDCache_Expires(t *testing.T) {
 	c := newUIDCache(50 * time.Millisecond)
-	c.set("authentik", "uid1", "tenant1")
-	if got := c.get("authentik", "uid1"); got != "tenant1" {
+	c.set("zitadel", "uid1", "tenant1")
+	if got := c.get("zitadel", "uid1"); got != "tenant1" {
 		t.Fatalf("fresh entry: got %q, want %q", got, "tenant1")
 	}
 	time.Sleep(75 * time.Millisecond)
-	if got := c.get("authentik", "uid1"); got != "" {
+	if got := c.get("zitadel", "uid1"); got != "" {
 		t.Fatalf("expired entry: got %q, want empty", got)
 	}
 }
 
 func TestUIDCache_Refreshes(t *testing.T) {
 	c := newUIDCache(100 * time.Millisecond)
-	c.set("authentik", "uid1", "tenant1")
+	c.set("zitadel", "uid1", "tenant1")
 	time.Sleep(60 * time.Millisecond)
-	c.set("authentik", "uid1", "tenant1") // re-set resets TTL
+	c.set("zitadel", "uid1", "tenant1") // re-set resets TTL
 	time.Sleep(60 * time.Millisecond)
-	if got := c.get("authentik", "uid1"); got != "tenant1" {
+	if got := c.get("zitadel", "uid1"); got != "tenant1" {
 		t.Fatalf("refreshed entry: got %q, want %q", got, "tenant1")
 	}
 }
 
 func TestUIDCache_SourceIsolation(t *testing.T) {
 	// Same auth_uid under different sources must not collide in cache.
+	// Source namespacing is preserved on the cache key even though only
+	// one source is live post-cutover — keeps the key shape stable.
 	c := newUIDCache(time.Minute)
-	c.set("authentik", "collision", "tenant-authentik")
 	c.set("zitadel", "collision", "tenant-zitadel")
-	if got := c.get("authentik", "collision"); got != "tenant-authentik" {
-		t.Errorf("authentik cache: got %q", got)
-	}
+	c.set("other", "collision", "tenant-other")
 	if got := c.get("zitadel", "collision"); got != "tenant-zitadel" {
 		t.Errorf("zitadel cache: got %q", got)
+	}
+	if got := c.get("other", "collision"); got != "tenant-other" {
+		t.Errorf("other cache: got %q", got)
 	}
 }
 
 func TestMiddleware_CacheRevocation(t *testing.T) {
 	calls := 0
-	resolver := func(_ context.Context, uid string) (string, error) {
+	resolver := func(_ context.Context, _ string, uid string) (string, error) {
 		calls++
 		return "tenant-" + uid, nil
 	}
 	mw := mustMW(t, MiddlewareConfig{
-		IDPMode:  IDPModeAuthentik,
-		Resolve:  resolver,
-		CacheTTL: 50 * time.Millisecond,
+		ResolveV2: resolver,
+		CacheTTL:  50 * time.Millisecond,
 	})(noopHandler())
 
 	req := func() *http.Request {
 		r := httptest.NewRequest("GET", "/", nil)
-		r.Header.Set("X-Authentik-Uid", "alice")
+		r.Header.Set("X-Auth-Request-User", "alice")
 		return r
 	}
 
@@ -255,7 +275,7 @@ func TestRequire_Returns401_WhenNoTenant(t *testing.T) {
 		w.Write([]byte("should-not-reach"))
 	})
 
-	mw := mustMW(t, MiddlewareConfig{IDPMode: IDPModeAuthentik})(handler)
+	mw := mustMW(t, MiddlewareConfig{})(handler)
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	w := httptest.NewRecorder()
 	mw.ServeHTTP(w, req)

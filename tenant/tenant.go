@@ -1,16 +1,14 @@
 // Package tenant provides per-request tenant isolation for Omur services.
 //
-// Browser requests arrive with an IdP-specific header set by Caddy
-// forward_auth (X-Authentik-Uid for Authentik, X-Auth-Request-User for
-// Zitadel). The middleware selects the right header via IDPMode and maps
-// the value to a tenant UUID via DB lookup with in-memory cache.
+// Browser requests arrive with X-Auth-Request-User set by Caddy forward_auth
+// (Zitadel via oauth2-proxy). The middleware maps the value to a tenant UUID
+// via DB lookup with in-memory cache.
 //
 // Internal service-to-service calls pass X-Tenant-ID directly (already a UUID).
 package tenant
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -19,73 +17,45 @@ import (
 
 type ctxKey struct{}
 
-// Resolver maps a bare auth_uid to a tenant UUID for the Authentik-era
-// single-source table. Kept for backward compatibility; new code should use
-// SourceAwareResolver.
-//
-// Deprecated: use SourceAwareResolver + MiddlewareConfig.ResolveV2.
-type Resolver func(ctx context.Context, authUID string) (tenantID string, err error)
-
 // SourceAwareResolver maps a (source, auth_uid) pair to a tenant UUID.
-// Lookup predicate: WHERE source = $1 AND auth_uid = $2. Source values:
-// "authentik" | "zitadel".
+// Lookup predicate: WHERE source = $1 AND auth_uid = $2. Source is always
+// "zitadel" post-cutover, but the column is preserved for forensic
+// traceability of legacy rows.
 type SourceAwareResolver func(ctx context.Context, source, authUID string) (tenantID string, err error)
 
 // AuthDetails carries the fields needed to auto-provision a new user_auth_map
 // row. Used by AutoProvisionerV2.
 type AuthDetails struct {
-	Source  string // IdP name: "authentik" | "zitadel"
-	AuthUID string // bare value from the browser-auth header (no namespace prefix)
+	Source  string // IdP name: "zitadel"
+	AuthUID string // bare value from X-Auth-Request-User (no namespace prefix)
 	Email   string
 }
-
-// AutoProvisioner creates a mapping for a new Authentik user (single-source).
-// Deprecated: use AutoProvisionerV2 + MiddlewareConfig.AutoProvisionV2.
-type AutoProvisioner func(ctx context.Context, authUID, email string) (tenantID string, err error)
 
 // AutoProvisionerV2 creates a mapping for a new user in the given IdP.
 type AutoProvisionerV2 func(ctx context.Context, d AuthDetails) (tenantID string, err error)
 
 // MiddlewareConfig configures the tenant middleware.
 type MiddlewareConfig struct {
-	// Resolve is the legacy single-source resolver. Deprecated — set ResolveV2 instead.
-	Resolve Resolver
-
 	// ResolveV2 maps (source, auth_uid) → tenant_id using the user_auth_map.source
-	// column added in 2026-04-22. When both Resolve and ResolveV2 are set, V2 wins.
+	// column.
 	ResolveV2 SourceAwareResolver
 
-	// AutoProvision is the legacy auto-provisioner. Deprecated — set AutoProvisionV2.
-	AutoProvision AutoProvisioner
-
-	// AutoProvisionV2 is the source-aware auto-provisioner. When both are set, V2 wins.
+	// AutoProvisionV2 is the source-aware auto-provisioner. Optional.
 	AutoProvisionV2 AutoProvisionerV2
 
 	// ServiceToken, if non-empty, gates both X-Tenant-ID (step 1) and the
-	// browser-auth header path (step 3). Requests with X-Auth-Request-User or
-	// X-Authentik-Uid but no matching X-Service-Token are rejected.
+	// browser-auth header path (step 3). Requests with X-Auth-Request-User
+	// but no matching X-Service-Token are rejected.
 	ServiceToken string
 
 	// CacheTTL bounds (source, auth_uid) → tenant_id cache entry lifetime.
 	// Zero means default (5 minutes).
 	CacheTTL time.Duration
 
-	// IDPMode selects the browser-auth header family. Valid: IDPModeAuthentik
-	// | IDPModeZitadel. Empty defaults to IDPModeAuthentik with a slog.Warn.
-	IDPMode string
-
 	// SessionResolver, if non-nil, is consulted for an omur_session cookie
 	// before any header resolution. Nil is valid during the passkey-slice
 	// rollout (spec cross-ref: 2026-04-22-sub-project-a-passkey-finalization).
 	SessionResolver func(ctx context.Context, sessionID string) (tenantID string, err error)
-
-	// RetireAuthentik, when true, rejects any configuration that still
-	// references the Authentik header family. Set from OMUR_IDP_RETIRE_AUTHENTIK.
-	RetireAuthentik bool
-
-	// PrivacyRetireAuthentik reflects the existing OMUR_PRIVACY_LAYER_RETIRE_AUTHENTIK
-	// flag. Only used by the startup assertion (see validateConfig).
-	PrivacyRetireAuthentik bool
 }
 
 // Middleware extracts the tenant ID from request headers and stores it in
@@ -93,15 +63,14 @@ type MiddlewareConfig struct {
 //  1. X-Tenant-ID (internal service-to-service calls — direct UUID). When
 //     ServiceToken is configured, also requires X-Service-Token match.
 //  2. omur_session cookie (via SessionResolver), if configured.
-//  3. Browser-auth UID header (IDPMode-selected) → Resolver → tenant UUID.
+//  3. X-Auth-Request-User (Zitadel via oauth2-proxy) → ResolveV2 → tenant UUID.
 //
 // If neither resolves, the request proceeds without tenant context;
 // handlers must check via Require().
+//
+// The factory returns (func, error) so future startup validations can
+// fail-closed without requiring callsite changes.
 func Middleware(cfg MiddlewareConfig) (func(http.Handler) http.Handler, error) {
-	if err := validateConfig(&cfg); err != nil {
-		return nil, err
-	}
-
 	cache := newUIDCache(cfg.CacheTTL)
 
 	return func(next http.Handler) http.Handler {
@@ -114,23 +83,6 @@ func Middleware(cfg MiddlewareConfig) (func(http.Handler) http.Handler, error) {
 			next.ServeHTTP(w, r)
 		})
 	}, nil
-}
-
-func validateConfig(cfg *MiddlewareConfig) error {
-	if cfg.IDPMode == "" {
-		slog.Warn("tenant.middleware.idp_mode_empty_defaulting_to_authentik")
-		cfg.IDPMode = IDPModeAuthentik
-	}
-	if cfg.IDPMode != IDPModeAuthentik && cfg.IDPMode != IDPModeZitadel {
-		return fmt.Errorf("tenant: unknown IDPMode %q (want authentik or zitadel)", cfg.IDPMode)
-	}
-	if cfg.IDPMode == IDPModeAuthentik && cfg.RetireAuthentik {
-		return fmt.Errorf("tenant: OMUR_IDP=authentik with OMUR_IDP_RETIRE_AUTHENTIK=true is contradictory")
-	}
-	if cfg.RetireAuthentik && !cfg.PrivacyRetireAuthentik {
-		return fmt.Errorf("tenant: OMUR_IDP_RETIRE_AUTHENTIK requires OMUR_PRIVACY_LAYER_RETIRE_AUTHENTIK=true")
-	}
-	return nil
 }
 
 func resolveTenant(r *http.Request, cfg *MiddlewareConfig, cache *uidCache) string {
@@ -154,7 +106,8 @@ func resolveTenant(r *http.Request, cfg *MiddlewareConfig, cache *uidCache) stri
 	}
 
 	// Step 3: browser-auth header path. Requires ServiceToken match when configured.
-	uidHeader := BrowserUIDHeader(cfg.IDPMode)
+	const uidHeader = "X-Auth-Request-User"
+	const emailHeader = "X-Auth-Request-Email"
 	authUID := r.Header.Get(uidHeader)
 	if authUID == "" {
 		return ""
@@ -165,30 +118,25 @@ func resolveTenant(r *http.Request, cfg *MiddlewareConfig, cache *uidCache) stri
 		return ""
 	}
 
-	source := cfg.IDPMode
+	const source = "zitadel"
 	if cached := cache.get(source, authUID); cached != "" {
 		return cached
 	}
 
-	// Resolver V2 preferred; fall back to V1 for backward compat.
 	var (
 		tid string
 		err error
 	)
 	if cfg.ResolveV2 != nil {
 		tid, err = cfg.ResolveV2(r.Context(), source, authUID)
-	} else if cfg.Resolve != nil {
-		tid, err = cfg.Resolve(r.Context(), authUID)
 	}
 	if err != nil {
 		slog.Warn("tenant.resolve_failed", "source", source, "auth_uid", authUID, "error", err)
 	}
 	if tid == "" {
-		email := r.Header.Get(BrowserEmailHeader(cfg.IDPMode))
+		email := r.Header.Get(emailHeader)
 		if cfg.AutoProvisionV2 != nil {
 			tid, err = cfg.AutoProvisionV2(r.Context(), AuthDetails{Source: source, AuthUID: authUID, Email: email})
-		} else if cfg.AutoProvision != nil {
-			tid, err = cfg.AutoProvision(r.Context(), authUID, email)
 		}
 		if err != nil {
 			slog.Warn("tenant.auto_provision_failed", "source", source, "auth_uid", authUID, "error", err)
@@ -228,7 +176,7 @@ func Require(w http.ResponseWriter, r *http.Request) string {
 	if tid == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error":"tenant_id required — authenticate via the configured IdP or pass X-Tenant-ID"}`))
+		w.Write([]byte(`{"error":"tenant_id required — authenticate via Zitadel or pass X-Tenant-ID"}`))
 	}
 	return tid
 }

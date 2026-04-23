@@ -35,17 +35,17 @@ func TestBearerAuth_AcceptsServiceToken(t *testing.T) {
 	}
 }
 
-func TestBearerAuth_RejectsAuthentikUIDAlone(t *testing.T) {
-	// Regression guard: the old BearerAuth let any non-empty X-Authentik-Uid
-	// pass. A peer on the backend network could forge it to bypass auth. Now
-	// Caddy must inject X-Service-Token alongside forward_auth.
+func TestBearerAuth_RejectsBrowserUIDAlone(t *testing.T) {
+	// Regression guard: the old BearerAuth let any non-empty browser uid
+	// header pass. A peer on the backend network could forge it to bypass
+	// auth. Now Caddy must inject X-Service-Token alongside forward_auth.
 	h := BearerAuth("secret", okHandler())
 	req := httptest.NewRequest("GET", "/api/x", nil)
-	req.Header.Set("X-Authentik-Uid", "attacker-forged-uid")
+	req.Header.Set("X-Auth-Request-User", "attacker-forged-uid")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("X-Authentik-Uid alone: got %d, want 401", w.Code)
+		t.Fatalf("X-Auth-Request-User alone: got %d, want 401", w.Code)
 	}
 }
 

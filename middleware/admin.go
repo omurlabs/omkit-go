@@ -5,31 +5,24 @@ import (
 	"strings"
 
 	"github.com/omurlabs/omur-core/packages/omur-go-sdk/auth"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/tenant"
 )
 
 // AdminConfig configures the admin role-mapping middleware.
 type AdminConfig struct {
 	// ServiceToken is the cluster-wide service token. When non-empty, requests
-	// that present a matching X-Service-Token AND carry NO browser-auth uid
-	// header (for either IdP family, during cutover) are treated as
-	// service-to-service and granted full admin powers.
+	// that present a matching X-Service-Token AND carry NO X-Auth-Request-User
+	// header are treated as service-to-service and granted full admin powers.
 	ServiceToken string
-
-	// IDPMode selects the browser-auth header family. Matches
-	// tenant.MiddlewareConfig.IDPMode. Empty defaults to authentik.
-	IDPMode string
 }
 
-// AdminMiddleware parses the IdP-selected groups header (pipe-separated, per
+// AdminMiddleware parses the Zitadel groups header (pipe-separated, per
 // Caddy forward_auth) into a role list and attaches it to the request
 // context. Handlers gate on auth.RequireRole(...).
 //
-// Service-to-service calls (X-Service-Token match, no browser-auth uid
-// header for EITHER IdP family) are granted the full role set
-// [admin, support]. Browser requests, even though caddy injects
-// X-Service-Token, also carry a uid header and therefore only get
-// header-derived roles.
+// Service-to-service calls (X-Service-Token match, no X-Auth-Request-User)
+// are granted the full role set [admin, support]. Browser requests, even
+// though caddy injects X-Service-Token, also carry X-Auth-Request-User and
+// therefore only get header-derived roles.
 //
 // The middleware ALWAYS runs — it never rejects. /admin/* path-level gating
 // happens via auth.RequireRole inside each handler (or via a wrapper
@@ -57,18 +50,16 @@ func AdminMiddleware(cfg AdminConfig) func(http.Handler) http.Handler {
 }
 
 func computeRoles(r *http.Request, cfg AdminConfig) []auth.Role {
-	// Service-token short-circuit: requires no browser-auth uid header from
-	// EITHER family to avoid misclassifying browser requests that arrive with
-	// Caddy-injected X-Service-Token but also carry a user header.
+	// Service-token short-circuit: requires no X-Auth-Request-User header to
+	// avoid misclassifying browser requests that arrive with Caddy-injected
+	// X-Service-Token but also carry a user header.
 	if cfg.ServiceToken != "" &&
 		r.Header.Get("X-Service-Token") == cfg.ServiceToken &&
-		r.Header.Get("X-Authentik-Uid") == "" &&
 		r.Header.Get("X-Auth-Request-User") == "" {
 		return []auth.Role{auth.RoleAdmin, auth.RoleSupport}
 	}
 
-	groupsHeader := tenant.BrowserGroupsHeader(cfg.IDPMode)
-	groups := parseGroups(r.Header.Get(groupsHeader))
+	groups := parseGroups(r.Header.Get("X-Auth-Request-Groups"))
 	return auth.RolesFromGroups(groups)
 }
 

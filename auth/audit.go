@@ -38,9 +38,9 @@ type AuditEntry struct {
 // request on audit-write error; this helper just propagates the DB error.
 //
 // Source of fields:
-//   - actor_uid    ← X-Authentik-Uid          (empty when service-token call)
-//   - actor_email  ← X-Authentik-Email
-//   - actor_groups ← X-Authentik-Groups       (raw, pipe-separated)
+//   - actor_uid    ← X-Auth-Request-User      (empty when service-token call)
+//   - actor_email  ← X-Auth-Request-Email
+//   - actor_groups ← X-Auth-Request-Groups    (raw, pipe-separated)
 //   - request_id   ← OTel trace ID            (16-byte hex, or empty)
 //   - ip           ← X-Forwarded-For first hop, falling back to RemoteAddr
 //   - user_agent   ← User-Agent header
@@ -55,7 +55,7 @@ func WriteAuditEntry(ctx context.Context, pool *pgxpool.Pool, r *http.Request, e
 		return fmt.Errorf("audit: role required")
 	}
 
-	actorUID := r.Header.Get("X-Authentik-Uid")
+	actorUID := r.Header.Get("X-Auth-Request-User")
 	if actorUID == "" {
 		actorUID = "service" // service-token callers
 	}
@@ -79,8 +79,8 @@ func WriteAuditEntry(ctx context.Context, pool *pgxpool.Pool, r *http.Request, e
 			(actor_uid, actor_email, actor_groups, role, action, target_kind, target_id, diff, request_id, ip, user_agent)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 		actorUID,
-		nullableHeader(r, "X-Authentik-Email"),
-		nullableHeader(r, "X-Authentik-Groups"),
+		nullableHeader(r, "X-Auth-Request-Email"),
+		nullableHeader(r, "X-Auth-Request-Groups"),
 		string(e.Role),
 		e.Action,
 		nullableString(e.TargetKind),

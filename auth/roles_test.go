@@ -18,7 +18,7 @@ func sortedRoles(rs []Role) []Role {
 }
 
 func TestRolesFromGroups_AdminOnly(t *testing.T) {
-	got := sortedRoles(RolesFromGroups([]string{"omur-admins"}))
+	got := sortedRoles(RolesFromGroups([]string{"omur-admin"}))
 	want := []Role{RoleAdmin}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
@@ -34,7 +34,7 @@ func TestRolesFromGroups_SupportOnly(t *testing.T) {
 }
 
 func TestRolesFromGroups_BothGroupsUnion(t *testing.T) {
-	got := sortedRoles(RolesFromGroups([]string{"omur-admins", "omur-support"}))
+	got := sortedRoles(RolesFromGroups([]string{"omur-admin", "omur-support"}))
 	want := []Role{RoleAdmin, RoleSupport}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
@@ -50,7 +50,7 @@ func TestRolesFromGroups_UnknownGroupIgnored(t *testing.T) {
 
 func TestRolesFromGroups_DuplicatesDeduped(t *testing.T) {
 	// A user could (theoretically) appear in the same group twice via parent/child.
-	got := sortedRoles(RolesFromGroups([]string{"omur-admins", "omur-admins"}))
+	got := sortedRoles(RolesFromGroups([]string{"omur-admin", "omur-admin"}))
 	want := []Role{RoleAdmin}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
@@ -105,16 +105,16 @@ func TestRequireRole_Allows_WhenRolePresent(t *testing.T) {
 	}
 }
 
-func TestRolesFromGroups_OmurUsers(t *testing.T) {
-	got := RolesFromGroups([]string{"omur-users"})
+func TestRolesFromGroups_OmurUser(t *testing.T) {
+	got := RolesFromGroups([]string{"omur-user"})
 	want := []Role{RoleUser}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("RolesFromGroups(omur-users) = %v, want %v", got, want)
+		t.Fatalf("RolesFromGroups(omur-user) = %v, want %v", got, want)
 	}
 }
 
 func TestRolesFromGroups_MultipleGroups_IncludesUser(t *testing.T) {
-	got := RolesFromGroups([]string{"omur-users", "omur-admins"})
+	got := RolesFromGroups([]string{"omur-user", "omur-admin"})
 	if !slices.Contains(got, RoleUser) || !slices.Contains(got, RoleAdmin) {
 		t.Fatalf("got %v, want to include RoleUser and RoleAdmin", got)
 	}

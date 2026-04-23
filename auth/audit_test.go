@@ -22,9 +22,9 @@ func TestWriteAuditEntry_PersistsRow(t *testing.T) {
 	defer pool.Close()
 
 	req := httptest.NewRequest("POST", "/admin/system-keys/anthropic", nil)
-	req.Header.Set("X-Authentik-Uid", "audit-test-uid")
-	req.Header.Set("X-Authentik-Email", "audit@example.com")
-	req.Header.Set("X-Authentik-Groups", "omur-admins|tenant-default")
+	req.Header.Set("X-Auth-Request-User", "audit-test-uid")
+	req.Header.Set("X-Auth-Request-Email", "audit@example.com")
+	req.Header.Set("X-Auth-Request-Groups", "omur-admin|tenant-default")
 	req.Header.Set("X-Forwarded-For", "203.0.113.7")
 	req.Header.Set("User-Agent", "go-test/1.0")
 

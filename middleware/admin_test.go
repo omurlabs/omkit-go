@@ -30,16 +30,16 @@ func TestAdminMiddleware_ParsesAdminGroup(t *testing.T) {
 	mw := AdminMiddleware(AdminConfig{ServiceToken: "secret"})(captureHandler(&got))
 
 	req := httptest.NewRequest("GET", "/admin/x", nil)
-	req.Header.Set("X-Authentik-Groups", "tenant-default|omur-admins|omur-users")
+	req.Header.Set("X-Auth-Request-Groups", "tenant-default|omur-admin|omur-user")
 	req.Header.Set("X-Service-Token", "secret") // browser path: caddy injects this
-	// But this request was forwarded with Authentik-Uid (browser flow); X-Tenant-ID
-	// is NOT set, so service-token short-circuit must NOT trigger.
-	req.Header.Set("X-Authentik-Uid", "user-pk-42")
+	// But this request was forwarded with X-Auth-Request-User (browser flow);
+	// X-Tenant-ID is NOT set, so service-token short-circuit must NOT trigger.
+	req.Header.Set("X-Auth-Request-User", "user-sub-42")
 
 	w := httptest.NewRecorder()
 	mw.ServeHTTP(w, req)
 
-	// omur-users now maps to RoleUser (role-scoped feature flags); admin+user
+	// omur-user maps to RoleUser (role-scoped feature flags); admin+user
 	// is the correct union for an admin who also sits in the plain-user group.
 	want := []auth.Role{auth.RoleAdmin, auth.RoleUser}
 	if !reflect.DeepEqual(sortedRoles(got), want) {
@@ -52,9 +52,9 @@ func TestAdminMiddleware_ParsesSupportGroup(t *testing.T) {
 	mw := AdminMiddleware(AdminConfig{ServiceToken: "secret"})(captureHandler(&got))
 
 	req := httptest.NewRequest("GET", "/admin/x", nil)
-	req.Header.Set("X-Authentik-Groups", "  omur-support  ") // whitespace tolerated
+	req.Header.Set("X-Auth-Request-Groups", "  omur-support  ") // whitespace tolerated
 	req.Header.Set("X-Service-Token", "secret")
-	req.Header.Set("X-Authentik-Uid", "user-pk-42")
+	req.Header.Set("X-Auth-Request-User", "user-sub-42")
 
 	w := httptest.NewRecorder()
 	mw.ServeHTTP(w, req)
@@ -70,8 +70,8 @@ func TestAdminMiddleware_NoGroupsHeader_NoRoles(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/admin/x", nil)
 	req.Header.Set("X-Service-Token", "secret")
-	req.Header.Set("X-Authentik-Uid", "user-pk-42")
-	// No X-Authentik-Groups.
+	req.Header.Set("X-Auth-Request-User", "user-sub-42")
+	// No X-Auth-Request-Groups.
 
 	w := httptest.NewRecorder()
 	mw.ServeHTTP(w, req)
@@ -87,11 +87,11 @@ func TestAdminMiddleware_UnknownGroupsIgnored(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/admin/x", nil)
 	// tenant-default is unknown; garbage-group is unknown; only those should
-	// be ignored. We deliberately do NOT include omur-users here because
+	// be ignored. We deliberately do NOT include omur-user here because
 	// that group now maps to a real role.
-	req.Header.Set("X-Authentik-Groups", "tenant-default|garbage-group")
+	req.Header.Set("X-Auth-Request-Groups", "tenant-default|garbage-group")
 	req.Header.Set("X-Service-Token", "secret")
-	req.Header.Set("X-Authentik-Uid", "user-pk-42")
+	req.Header.Set("X-Auth-Request-User", "user-sub-42")
 
 	w := httptest.NewRecorder()
 	mw.ServeHTTP(w, req)
@@ -103,7 +103,7 @@ func TestAdminMiddleware_UnknownGroupsIgnored(t *testing.T) {
 
 func TestAdminMiddleware_ServiceTokenShortCircuit_GrantsAdmin(t *testing.T) {
 	// Internal service-to-service call: presents X-Service-Token + X-Tenant-ID,
-	// no X-Authentik-Uid. Must be granted full admin.
+	// no X-Auth-Request-User. Must be granted full admin.
 	var got []auth.Role
 	mw := AdminMiddleware(AdminConfig{ServiceToken: "secret"})(captureHandler(&got))
 
@@ -121,16 +121,16 @@ func TestAdminMiddleware_ServiceTokenShortCircuit_GrantsAdmin(t *testing.T) {
 }
 
 func TestAdminMiddleware_BrowserRequest_DoesNotShortCircuit(t *testing.T) {
-	// Browser request: caddy injects X-Service-Token but ALSO X-Authentik-Uid.
-	// The presence of X-Authentik-Uid means this is a user request — only
+	// Browser request: caddy injects X-Service-Token but ALSO X-Auth-Request-User.
+	// The presence of X-Auth-Request-User means this is a user request — only
 	// header-derived roles apply, no admin grant from the service token alone.
 	var got []auth.Role
 	mw := AdminMiddleware(AdminConfig{ServiceToken: "secret"})(captureHandler(&got))
 
 	req := httptest.NewRequest("GET", "/admin/x", nil)
 	req.Header.Set("X-Service-Token", "secret")
-	req.Header.Set("X-Authentik-Uid", "user-pk-42")
-	req.Header.Set("X-Authentik-Groups", "tenant-default") // not an admin group
+	req.Header.Set("X-Auth-Request-User", "user-sub-42")
+	req.Header.Set("X-Auth-Request-Groups", "tenant-default") // not an admin group
 	// no X-Tenant-ID
 
 	w := httptest.NewRecorder()
@@ -173,49 +173,4 @@ func TestAdminMiddleware_EmptyServiceTokenConfig_DisablesShortCircuit(t *testing
 	if len(got) != 0 {
 		t.Errorf("empty service-token config: got %v, want no roles", got)
 	}
-}
-
-func TestAdminMiddlewareZitadelHeaders(t *testing.T) {
-	cfg := AdminConfig{
-		ServiceToken: "svc-token",
-		IDPMode:      "zitadel",
-	}
-	mw := AdminMiddleware(cfg)
-
-	// Browser request under Zitadel — carries both X-Service-Token (Caddy-injected)
-	// and X-Auth-Request-User. Must NOT be treated as service-to-service.
-	req := httptest.NewRequest("GET", "/admin/x", nil)
-	req.Header.Set("X-Service-Token", "svc-token")
-	req.Header.Set("X-Auth-Request-User", "198261369861120001")
-	// NOTE: plan §Task 3.6 text used "omur-admin|omur-user" (singular) but
-	// the existing role catalog in packages/omur-go-sdk/auth/roles.go only
-	// recognizes "omur-admins"/"omur-users" (plural). Group-name rename is
-	// infra work (spec §Roles) that will land with Zitadel role provisioning.
-	// Using plural keys here lets the test exercise the IDPMode header
-	// dispatch without depending on the deferred rename.
-	req.Header.Set("X-Auth-Request-Groups", "omur-admins|omur-users")
-
-	var gotRoles []auth.Role
-	h := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotRoles = auth.RolesFromContext(r.Context())
-	}))
-	h.ServeHTTP(httptest.NewRecorder(), req)
-
-	// Expect header-derived roles (omur-admin only from the groups), NOT the
-	// service-token short-circuit [admin, support] pair.
-	if containsRole(gotRoles, auth.RoleSupport) {
-		t.Errorf("browser request under zitadel should not get service-token roles: %v", gotRoles)
-	}
-	if !containsRole(gotRoles, auth.RoleAdmin) {
-		t.Errorf("expected RoleAdmin from groups header, got %v", gotRoles)
-	}
-}
-
-func containsRole(rs []auth.Role, want auth.Role) bool {
-	for _, r := range rs {
-		if r == want {
-			return true
-		}
-	}
-	return false
 }

@@ -1,9 +1,10 @@
 // Package auth provides the role catalog and authorization helpers shared
-// across Omur Go services. Identity comes from Authentik (forward_auth
-// headers); roles are computed from group membership using a hardcoded map.
+// across Omur Go services. Identity comes from Zitadel (forward_auth headers
+// via oauth2-proxy); roles are computed from group membership using a
+// hardcoded map.
 //
 // Adding a role requires a code change — that's the right friction for a
-// security-sensitive list. Group names live in Terraform (infra/authentik).
+// security-sensitive list. Role keys live in Terraform (infra/zitadel/roles.tf).
 package auth
 
 import (
@@ -18,26 +19,26 @@ const (
 	RoleAdmin   Role = "admin"
 	RoleSupport Role = "support"
 	// RoleUser covers two distinct actors that land in the same audit
-	// column: (a) omur-users group members, for role-gated admin/settings
+	// column: (a) omur-user role members, for role-gated admin/settings
 	// features; (b) self-service auth-path events (signup, login, logout,
 	// credential add/delete) where the account owner IS the actor — no
-	// Authentik group is required for that flow because the auth handlers
+	// IdP role is required for that flow because the auth handlers
 	// emit the entry directly. admin_audit_log's CHECK constraint on
 	// `role` must include 'user' for these rows to persist.
 	RoleUser Role = "user"
 )
 
-// groupToRoles is the source of truth for Authentik-group → role mapping.
-// Keys MUST match the `name` field of the corresponding authentik_group
-// resource in infra/authentik/groups.tf.
+// groupToRoles is the source of truth for Zitadel-role-key → Role mapping.
+// Keys MUST match the `role_key` field of the corresponding
+// zitadel_project_role resource in infra/zitadel/roles.tf (singular).
 var groupToRoles = map[string][]Role{
-	"omur-admins":  {RoleAdmin},
+	"omur-admin":   {RoleAdmin},
 	"omur-support": {RoleSupport},
-	"omur-users":   {RoleUser},
+	"omur-user":    {RoleUser},
 }
 
 // RolesFromGroups returns the deduplicated union of roles granted by the
-// given Authentik group memberships. Unknown groups are silently ignored.
+// given Zitadel role-key memberships. Unknown keys are silently ignored.
 // Order of the returned slice is not specified.
 func RolesFromGroups(groups []string) []Role {
 	if len(groups) == 0 {
