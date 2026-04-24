@@ -35,6 +35,26 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 	return p
 }
 
+// requireTables skips the test when any required table is absent — the
+// registry package is schema-agnostic SDK code that doesn't own DDL, so
+// missing tables mean the target DB hasn't had migrate-spine applied.
+func requireTables(t *testing.T, pool *pgxpool.Pool, tables ...string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	for _, name := range tables {
+		var present bool
+		if err := pool.QueryRow(ctx,
+			"SELECT to_regclass('public.'||$1) IS NOT NULL", name,
+		).Scan(&present); err != nil {
+			t.Fatalf("check table %s: %v", name, err)
+		}
+		if !present {
+			t.Skipf("table %q not present; run migrate-spine against TEST_POSTGRES_DSN first", name)
+		}
+	}
+}
+
 func TestRegistryBackendFromEnvDefaultPostgres(t *testing.T) {
 	t.Setenv("OMUR_PROVIDERS_BACKEND", "")
 	reg := registry.New("collector", nil, "", nil)
@@ -45,6 +65,7 @@ func TestRegistryBackendFromEnvDefaultPostgres(t *testing.T) {
 
 func TestRegistryPollingPicksUpProviders(t *testing.T) {
 	pool := newTestPool(t)
+	requireTables(t, pool, "tenants", "providers")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
