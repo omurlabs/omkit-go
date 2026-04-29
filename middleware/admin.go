@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -63,11 +64,28 @@ func computeRoles(r *http.Request, cfg AdminConfig) []auth.Role {
 	return auth.RolesFromGroups(groups)
 }
 
-// parseGroups splits the pipe-separated groups header value
-// and trims whitespace from each entry. Empty entries are dropped.
+// parseGroups splits the pipe-separated groups header value and trims
+// whitespace from each entry. Empty entries are dropped.
+//
+// Zitadel's `urn:zitadel:iam:org:project:roles` claim is a nested JSON
+// object keyed on role name. oauth2-proxy v7.15+ does not flatten it,
+// so the entire JSON arrives as a single header value. Detect that shape
+// and extract top-level keys as the role list.
 func parseGroups(raw string) []string {
 	if raw == "" {
 		return nil
+	}
+	if trimmed := strings.TrimSpace(raw); strings.HasPrefix(trimmed, "{") {
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(trimmed), &obj); err == nil {
+			out := make([]string, 0, len(obj))
+			for k := range obj {
+				if k = strings.TrimSpace(k); k != "" {
+					out = append(out, k)
+				}
+			}
+			return out
+		}
 	}
 	parts := strings.Split(raw, "|")
 	out := make([]string, 0, len(parts))
