@@ -1,3 +1,11 @@
+// store.go — store module.
+//
+// exports: Session | Store
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package sessions defines a pluggable session store interface used by services
 // that need to persist short-lived per-user sessions. Backends include
 // PostgresSessionStore (default) and RedisSessionStore (opt-in via env).

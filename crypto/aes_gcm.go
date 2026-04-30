@@ -1,3 +1,11 @@
+// aes_gcm.go — aes_gcm module.
+//
+// exports: Wrap | Unwrap
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 package crypto
 
 import (

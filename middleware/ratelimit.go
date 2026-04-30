@@ -1,3 +1,11 @@
+// ratelimit.go — ratelimit module.
+//
+// exports: IPRateLimiter | NewIPRateLimiter | Wrap
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package middleware — IP-keyed token-bucket rate limiter.
 //
 // In-memory, per-process. Not clustered — each service replica enforces its

@@ -1,3 +1,11 @@
+// envelope.go — envelope module.
+//
+// exports: EnvelopeVersion | Envelope | ErrInvalidEnvelope | Wrap | Unwrap
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package jobqueue provides shared primitives for Asynq-backed job queues.
 //
 // The Envelope is the cross-SDK contract: every task payload enqueued from any

@@ -1,3 +1,11 @@
+// roles.go — roles module.
+//
+// exports: Role | RoleAdmin | RoleSupport | RoleUser | RolesFromGroups | WithRoles | RolesFromContext | HasRole | RequireRole
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package auth provides the role catalog and authorization helpers shared
 // across Omur Go services. Identity comes from Zitadel (forward_auth headers
 // via oauth2-proxy); roles are computed from group membership using a

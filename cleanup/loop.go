@@ -1,3 +1,11 @@
+// loop.go — loop module.
+//
+// exports: Config | Loop | NewLoop | Run
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package cleanup provides a coordinated periodic task runner. Loop.Run
 // fires Config.Task every Config.Interval while holding a
 // `pg_try_advisory_lock(Config.LockKey)` — so horizontally scaled replicas

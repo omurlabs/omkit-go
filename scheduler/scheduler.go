@@ -1,3 +1,11 @@
+// scheduler.go — scheduler module.
+//
+// exports: ProviderSource | PgxProviderSource | FetchProviders | DefaultPollInterval | Provider | CronDeriver | Asynq | Enqueuer | Scheduler | Option | WithPollInterval | WithImmediateOnRegister | New | Start | Stop | Entries
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package scheduler wraps Asynq Scheduler with a DB-driven reconcile loop.
 //
 // The Asynq Scheduler API requires callers to Register cron entries one-by-one

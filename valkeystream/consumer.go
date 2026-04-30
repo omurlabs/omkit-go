@@ -1,3 +1,11 @@
+// consumer.go — consumer module.
+//
+// exports: ClaimStale | Pending
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 package valkeystream
 
 import (

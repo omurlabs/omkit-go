@@ -1,3 +1,11 @@
+// bus.go — bus module.
+//
+// exports: Event | Handler | Bus
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package eventbus defines a pluggable pub/sub-style event bus used for
 // cross-service notifications (settings changes, provider updates, metrics).
 // Backends include PostgresEventBus (polling, default) and RedisEventBus

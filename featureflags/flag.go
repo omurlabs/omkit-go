@@ -1,3 +1,11 @@
+// flag.go — flag module.
+//
+// exports: Flag | ValidateRoles
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package featureflags provides a shared role-scoped feature-flag primitive
 // for Omur services. A flag is {Enabled: bool, Roles: []auth.Role}; a caller
 // is Allowed iff the flag is enabled AND the caller's roles intersect the

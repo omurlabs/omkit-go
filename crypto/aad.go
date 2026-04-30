@@ -1,3 +1,11 @@
+// aad.go — aad module.
+//
+// exports: AADMeta | AADMetrics | AADContent | AADEmbeddingsChunks
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 package crypto
 
 // AAD purpose-string constants bind each per-domain DEK to the data it

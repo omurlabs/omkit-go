@@ -1,3 +1,11 @@
+// client.go — client module.
+//
+// exports: ErrCircuitOpen | CircuitBreaker | NewCircuitBreaker | Allow | RecordSuccess | RecordFailure | Client | Option | New | WithoutTracing | WithTimeout | WithRetries | WithBearerToken | WithServiceToken | WithTenantHeaderFromContext | WithCircuitBreaker | WithCheckRedirect | WithTransport | PostJSON | GetJSON | (+2 more)
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package httpclient provides an HTTP client with retry, auth, and circuit breaker support.
 package httpclient
 

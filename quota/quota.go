@@ -1,3 +1,11 @@
+// quota.go — quota module.
+//
+// exports: Resource | ResourceDocs | ResourceStorage | ResourceQueries | DefaultDocs | DefaultStorageBytes | DefaultQueriesPerMonth | Limits | Usage | Decision | Load | GetUsage | CheckUpload | CheckQuery
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package quota enforces per-tenant resource limits (plan 1.7).
 // Limits are read from public.tenant_quotas; absence of a row means
 // "use the defaults below". Usage is counted from the canonical sources:

@@ -1,3 +1,11 @@
+// config.go — config module.
+//
+// exports: Base | Load | PostgresDSN | ValkeyAddr | CORSOriginsList | EnvStr | EnvInt | EnvBool | EnvInt64
+// used_by: none
+// rules:   none
+// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
+// message: 
+
 // Package config provides base configuration for all Omur Go services.
 // It reads environment variables with sensible defaults, mirroring
 // the Python BaseServiceSettings pattern.
