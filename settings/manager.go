@@ -220,7 +220,15 @@ func (m *Manager) pollLoop(ctx context.Context) {
 }
 
 func (m *Manager) pollOnce(ctx context.Context) error {
+	// pollLastSeen is also written by loadFromDB (under m.mu.Lock). Without
+	// the lock here, the read/write pair across the poll loop and the
+	// initial load races when Start runs concurrently with the first tick
+	// (or with a manual ApplyChange). Take m.mu.Lock just for the snapshot
+	// read so callers see a consistent value.
+	m.mu.Lock()
 	since := m.pollLastSeen
+	m.mu.Unlock()
+
 	rows, err := m.db.Query(ctx,
 		`SELECT key, value_json, is_secret, updated_at
 		 FROM app_settings
@@ -252,7 +260,12 @@ func (m *Manager) pollOnce(ctx context.Context) error {
 		}
 	}
 	if !latest.IsZero() {
+		// Pair the snapshot read above: also take the lock for the write so
+		// concurrent loadFromDB / Stop / GetAll observers see a consistent
+		// pollLastSeen value.
+		m.mu.Lock()
 		m.pollLastSeen = latest
+		m.mu.Unlock()
 	}
 	return rows.Err()
 }
