@@ -4,7 +4,7 @@
 // used_by: none
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
-// message: 
+// message:
 
 // Package jobqueue provides shared primitives for Asynq-backed job queues.
 //
@@ -28,10 +28,18 @@ const EnvelopeVersion = 1
 
 // Envelope wraps every task payload with the tenant identifier and a schema
 // version. Payload is opaque JSON — handlers unmarshal into their own type.
+//
+// G6: “RequestID“ carries the X-Request-ID correlation id across the
+// queue boundary. Older payloads without the field decode cleanly (zero
+// value = empty string), so this is a backward-compatible additive
+// change at envelope schema v1.
 type Envelope struct {
-	Version  int             `json:"version"`
-	TenantID string          `json:"tenant_id"`
-	Payload  json.RawMessage `json:"payload"`
+	Version  int    `json:"version"`
+	TenantID string `json:"tenant_id"`
+	// RequestID is opaque to the queue layer; downstream services MUST
+	// validate before using in security contexts (auth, RLS, cache keys).
+	RequestID string          `json:"request_id,omitempty"`
+	Payload   json.RawMessage `json:"payload"`
 }
 
 // ErrInvalidEnvelope is returned when an inbound envelope fails validation.
@@ -40,7 +48,26 @@ type Envelope struct {
 var ErrInvalidEnvelope = errors.New("invalid job envelope")
 
 // Wrap marshals payload into an Envelope. tenant_id must be a valid UUID.
+//
+// Back-compat shim — the original two-arg signature is preserved as a
+// thin call into WrapWithRequestID with an empty correlation id, so
+// every existing call site (every enqueue site in spine, pulse, marrow,
+// solid-sync) keeps compiling without edits.
 func Wrap(tenantID string, payload any) ([]byte, error) {
+	return WrapWithRequestID(tenantID, "", payload)
+}
+
+// WrapWithRequestID is Wrap plus an explicit request_id correlation id.
+// Pass an empty string to opt out — the field is then omitted from the
+// envelope JSON entirely (omitempty), keeping the wire format byte-for-
+// byte identical to the old shape for callers that don't care about
+// correlation propagation.
+//
+// Rules: “requestID“ is a free-form string (uuid, OTel trace id, or
+// upstream Caddy-injected token). No format validation — we forward
+// whatever the inbound request carried, since the upstream service
+// already vetted it.
+func WrapWithRequestID(tenantID, requestID string, payload any) ([]byte, error) {
 	if _, err := uuid.Parse(tenantID); err != nil {
 		return nil, fmt.Errorf("%w: tenant_id not a valid uuid: %v", ErrInvalidEnvelope, err)
 	}
@@ -49,9 +76,10 @@ func Wrap(tenantID string, payload any) ([]byte, error) {
 		return nil, fmt.Errorf("marshal payload: %w", err)
 	}
 	env := Envelope{
-		Version:  EnvelopeVersion,
-		TenantID: tenantID,
-		Payload:  raw,
+		Version:   EnvelopeVersion,
+		TenantID:  tenantID,
+		RequestID: requestID,
+		Payload:   raw,
 	}
 	return json.Marshal(env)
 }
