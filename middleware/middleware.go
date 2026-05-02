@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
 )
 
 // CORS wraps a handler with CORS headers based on allowed origins.
@@ -105,17 +107,25 @@ func MustBearerAuth(token string, next http.Handler) http.Handler {
 	return BearerAuth(token, next)
 }
 
-// RequestLog logs each request with method, path, status, and duration.
+// RequestLog logs each request with method, path, status, duration, and the
+// per-request correlation id. The id is sourced from ctx (preferred — set by
+// upstream CorrelationID middleware) and falls back to the inbound header for
+// services that have not yet wired ctx-based correlation.
 func RequestLog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		sw := &statusWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(sw, r)
+		reqID := requestid.FromContext(r.Context())
+		if reqID == "" {
+			reqID = r.Header.Get(requestid.HeaderName)
+		}
 		slog.Info("http.request",
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", sw.status,
 			"duration_ms", time.Since(start).Milliseconds(),
+			"request_id", reqID,
 		)
 	})
 }

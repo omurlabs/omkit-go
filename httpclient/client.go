@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
 	"github.com/omurlabs/omur-core/packages/omur-go-sdk/tenant"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
@@ -95,12 +96,13 @@ func (cb *CircuitBreaker) RecordFailure() {
 
 // Client is an HTTP client with retries, auth headers, and optional circuit breaker.
 type Client struct {
-	http              http.Client
-	retries           int
-	headers           map[string]string
-	circuitBreaker    *CircuitBreaker
-	tracingDisabled   bool
-	tenantFromContext bool
+	http                 http.Client
+	retries              int
+	headers              map[string]string
+	circuitBreaker       *CircuitBreaker
+	tracingDisabled      bool
+	tenantFromContext    bool
+	requestIDFromContext bool
 }
 
 // Option is a functional option for Client.
@@ -158,6 +160,15 @@ func WithServiceToken(token string) Option {
 // voice proxy, Reflex → Auris, Marrow → Cerebellum).
 func WithTenantHeaderFromContext() Option {
 	return func(c *Client) { c.tenantFromContext = true }
+}
+
+// WithRequestIDFromContext auto-sets X-Request-ID on every outbound request
+// from requestid.FromContext(ctx). No-op when ctx has no id or the caller
+// already set the header on the request. Intended for every service-to-service
+// hop so a single correlation id traces a request across spine → cortex →
+// synapse → marrow without each callsite re-extracting it.
+func WithRequestIDFromContext() Option {
+	return func(c *Client) { c.requestIDFromContext = true }
 }
 
 // WithCircuitBreaker attaches a circuit breaker to the client.
@@ -229,6 +240,9 @@ func (c *Client) PostJSON(ctx context.Context, url string, body interface{}) (*h
 				req.Header.Set("X-Tenant-ID", tid)
 			}
 		}
+		if c.requestIDFromContext {
+			requestid.WithRequestIDPropagation(ctx, req)
+		}
 
 		resp, err = c.http.Do(req)
 		if err != nil {
@@ -283,6 +297,9 @@ func (c *Client) GetJSON(ctx context.Context, url string) (*http.Response, error
 			req.Header.Set("X-Tenant-ID", tid)
 		}
 	}
+	if c.requestIDFromContext {
+		requestid.WithRequestIDPropagation(ctx, req)
+	}
 
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -322,6 +339,9 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 		if tid := tenant.FromContext(ctx); tid != "" && req.Header.Get("X-Tenant-ID") == "" {
 			req.Header.Set("X-Tenant-ID", tid)
 		}
+	}
+	if c.requestIDFromContext {
+		requestid.WithRequestIDPropagation(ctx, req)
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
