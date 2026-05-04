@@ -79,7 +79,7 @@ func BearerAuth(token string, next http.Handler) http.Handler {
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if path == "/health" || path == "/healthz" || path == "/ready" {
+		if path == "/health" || path == "/healthz" || path == "/ready" || path == "/readyz" {
 			next.ServeHTTP(w, r)
 			return
 		}
