@@ -15,10 +15,11 @@ package cleanup
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/omurlabs/omur-core/packages/omur-go-sdk/logging"
 )
 
 type Config struct {
@@ -59,10 +60,12 @@ func (l *Loop) Run(ctx context.Context) {
 	}
 }
 
-func (l *Loop) tick(ctx context.Context) {
+func (l *Loop) tick(parent context.Context) {
+	ctx, log := logging.WorkerContext(parent, l.cfg.Name)
+
 	conn, err := l.pool.Acquire(ctx)
 	if err != nil {
-		slog.Warn(l.cfg.Name+": acquire failed", "err", err)
+		log.Warn(l.cfg.Name+": acquire failed", "err", err)
 		return
 	}
 	defer conn.Release()
@@ -70,7 +73,7 @@ func (l *Loop) tick(ctx context.Context) {
 	var got bool
 	if err := conn.QueryRow(ctx,
 		"SELECT pg_try_advisory_lock($1)", l.cfg.LockKey).Scan(&got); err != nil {
-		slog.Warn(l.cfg.Name+": lock query failed", "err", err)
+		log.Warn(l.cfg.Name+": lock query failed", "err", err)
 		return
 	}
 	if !got {
@@ -81,6 +84,6 @@ func (l *Loop) tick(ctx context.Context) {
 	}()
 
 	if err := l.cfg.Task(ctx); err != nil {
-		slog.Warn(l.cfg.Name+": task failed", "err", err)
+		log.Warn(l.cfg.Name+": task failed", "err", err)
 	}
 }

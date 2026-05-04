@@ -1,13 +1,19 @@
 package cleanup_test
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log/slog"
 	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omurlabs/omur-core/packages/omur-go-sdk/cleanup"
+	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
 )
 
 func testPool(t *testing.T) *pgxpool.Pool {
@@ -77,5 +83,62 @@ func TestLoopHonorsLockContention(t *testing.T) {
 	case <-ran:
 		t.Fatal("task ran despite lock held elsewhere")
 	case <-time.After(250 * time.Millisecond):
+	}
+}
+
+func TestLoop_TickInjectsWorkerContext(t *testing.T) {
+	pool := testPool(t)
+
+	var (
+		mu           sync.Mutex
+		gotRequestID string
+	)
+	loop := cleanup.NewLoop(pool, cleanup.Config{
+		LockKey:  9_999_001,
+		Interval: 100 * time.Millisecond,
+		Name:     "test-worker",
+		Task: func(ctx context.Context) error {
+			mu.Lock()
+			defer mu.Unlock()
+			if gotRequestID == "" {
+				gotRequestID = requestid.FromContext(ctx)
+			}
+			return nil
+		},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	loop.Run(ctx)
+
+	mu.Lock()
+	id := gotRequestID
+	mu.Unlock()
+	if id == "" {
+		t.Fatalf("expected request_id in tick ctx; got empty")
+	}
+}
+
+func TestLoop_TickEmitsWorker(t *testing.T) {
+	pool := testPool(t)
+
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)).With("service", "test-svc"))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	loop := cleanup.NewLoop(pool, cleanup.Config{
+		LockKey:  9_999_002,
+		Interval: 100 * time.Millisecond,
+		Name:     "emit-worker",
+		Task: func(_ context.Context) error {
+			return errors.New("boom") // forces the loop's failure log path
+		},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	loop.Run(ctx)
+
+	if !strings.Contains(buf.String(), `"worker":"emit-worker"`) {
+		t.Fatalf("expected worker=emit-worker in failure log; got %q", buf.String())
 	}
 }
