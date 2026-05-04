@@ -6,8 +6,6 @@
 // easy to find by name.
 //
 // exports: WithRequestID | RequestIDFromContext | EnqueueMiddleware | NewEnqueueMiddleware | WithEnvelope
-// used_by: services/spine/internal/api/* (enqueue side),
-//          services/solid-sync/* + services/reflex/* (consume side)
 // rules:   The ctx key is a private struct{} so callers cannot
 //          accidentally collide with another package's request_id key.
 //          The empty string is the "no correlation id" sentinel —

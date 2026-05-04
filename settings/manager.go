@@ -1,7 +1,6 @@
 // manager.go — manager module.
 //
 // exports: Manager | Backend | BackendPostgres | BackendRedis | Config | Option | WithValkey | WithCache | WithService | WithTenantID | WithPollInterval | New | NewFromConfig | Start | Stop | ApplyChange | Get | GetAll | OnChange | WriteCache | (+1 more)
-// used_by: none
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 

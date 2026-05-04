@@ -1,7 +1,6 @@
 // pipeline.go — pipeline module.
 //
 // exports: ErrPromptOverlaySafetyScreenFailed | ErrInterpolationTokenDisallowed | ErrUrgencyKeywordMissing | ErrSafetyClassDowngrade | ErrClinicianFieldImmutable | SafetyScreen | Pipeline | New | ValidateOverlay | ValidateRefusalTemplate | ValidateAdminDiff
-// used_by: spine
 // rules:   none
 // agent:   codedna-cli | 2026-05-02 | extract from cortex/personas/validation
 

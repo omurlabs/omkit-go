@@ -1,7 +1,6 @@
 // clinician_fields.go — clinician_fields module.
 //
 // exports: FieldDiff | ClinicianOnlyPaths | IsClinicianFieldChange
-// used_by: spine
 // rules:   none
 // agent:   codedna-cli | 2026-05-02 | extract from cortex/personas/validation
 

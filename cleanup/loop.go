@@ -1,7 +1,6 @@
 // loop.go — loop module.
 //
 // exports: Config | Loop | NewLoop | Run
-// used_by: none
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 

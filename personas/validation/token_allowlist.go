@@ -1,7 +1,6 @@
 // token_allowlist.go — token_allowlist module.
 //
 // exports: AllowedInterpolationTokens | ValidateInterpolationTokens
-// used_by: spine
 // rules:   none
 // agent:   codedna-cli | 2026-05-02 | extract from cortex/personas/validation
 

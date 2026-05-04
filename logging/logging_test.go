@@ -1,7 +1,6 @@
 // logging_test.go — tests for logging module.
 //
 // exports: TestInit_DefaultsToJSON | TestInit_LogFormatText | TestInit_LogLevel | TestFromContext_AddsRequestID
-// used_by: none
 // rules:   none
 // agent:   batch-log-structuring | claude | 2026-05-02 | claude | tests for env parsing + ctx helper
 // message:

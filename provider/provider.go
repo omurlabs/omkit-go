@@ -1,7 +1,6 @@
 // provider.go — provider module.
 //
 // exports: Provider | ContentPart | ImageURLObj | MessageContent | IsMultimodal | String | UnmarshalJSON | MarshalJSON | Message | ResponseFormat | ChatRequest | ChatResponse | EmbedRequest | EmbedResponse | Usage
-// used_by: none
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 

@@ -1,7 +1,6 @@
 // urgency_keywords.go — urgency_keywords module.
 //
 // exports: UrgencyKeywords | HasUrgencyKeyword
-// used_by: spine
 // rules:   none
 // agent:   codedna-cli | 2026-05-02 | extract from cortex/personas/validation
 

@@ -1,7 +1,6 @@
 // quota.go — quota module.
 //
 // exports: Resource | ResourceDocs | ResourceStorage | ResourceQueries | DefaultDocs | DefaultStorageBytes | DefaultQueriesPerMonth | Limits | Usage | Decision | Load | GetUsage | CheckUpload | CheckQuery
-// used_by: none
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 

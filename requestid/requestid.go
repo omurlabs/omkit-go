@@ -1,7 +1,6 @@
 // requestid.go — requestid module.
 //
 // exports: HeaderName | NewContext | FromContext | WithRequestIDPropagation
-// used_by: none
 // rules:   none
 // agent:   batch-d-overnight | claude | 2026-05-02 | claude | initial implementation
 // message: SDK helper for X-Request-ID propagation across service hops

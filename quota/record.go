@@ -1,7 +1,6 @@
 // record.go — record module.
 //
 // exports: RecordUsage
-// used_by: none
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 

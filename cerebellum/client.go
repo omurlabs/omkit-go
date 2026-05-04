@@ -1,7 +1,6 @@
 // client.go — client module.
 //
 // exports: ErrCircuitOpen | ErrRemoteFailure | ErrDisabled | Client | Option | WithTimeout | WithEnabled | WithFailureThreshold | WithCooldown | New | Available | NER | Classify | DetectLanguage | Translate | Embed | Health
-// used_by: none
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 

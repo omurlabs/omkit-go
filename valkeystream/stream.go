@@ -1,7 +1,6 @@
 // stream.go — stream module.
 //
 // exports: Message | Stream | New | Add | ReadGroup | Ack | Delete | Len | Close | Client
-// used_by: none
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 

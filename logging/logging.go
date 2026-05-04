@@ -1,7 +1,6 @@
 // logging.go — logging module.
 //
 // exports: Init | FromContext
-// used_by: none
 // rules:   none
 // agent:   batch-log-structuring | claude | 2026-05-02 | claude | env-driven level/format + ctx helper
 // message: structured slog with LOG_LEVEL/LOG_FORMAT env + request_id-from-ctx helper

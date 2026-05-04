@@ -1,7 +1,6 @@
 // encryption.go — encryption module.
 //
 // exports: ErrInvalidToken | ErrInvalidKey | GenerateKey | Encrypt | Decrypt | MaskSecret
-// used_by: none
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 

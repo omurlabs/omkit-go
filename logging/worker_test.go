@@ -1,7 +1,6 @@
 // worker_test.go — tests for WorkerContext helper.
 //
 // exports: TestWorkerContext_AssignsRequestID | TestWorkerContext_BindsWorkerAttr | TestWorkerContext_FreshIDPerCall | TestWorkerContext_PreservesParentValues
-// used_by: none
 // rules:   none
 // agent:   logging-e2b | claude | 2026-05-04 | claude | per-tick worker ctx helper tests
 // message:

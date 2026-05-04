@@ -1,7 +1,6 @@
 // worker.go — WorkerContext helper for pure-bg-worker request_id propagation.
 //
 // exports: WorkerContext
-// used_by: none
 // rules:   per-tick UUID, never per-worker-run; worker is a regular slog attr (NOT a VL stream field)
 // agent:   logging-e2b | claude | 2026-05-04 | claude | helper for bg worker per-tick ctx
 // message: minted UUID + worker attr per call so each tick correlates its own log lines

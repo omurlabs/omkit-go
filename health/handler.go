@@ -1,7 +1,6 @@
 // handler.go — health and readiness HTTP handlers.
 //
 // exports: Handler | ReadyHandler | Probe | ReadyHandlerWithProbes | Mount | LegacyHealthcheck
-// used_by: services/pulse/main.go | services/spine/main.go | services/cortex/log.go | services/synapse/main.go | services/reflex/main.go | services/solid-sync/handler/health.go
 // rules:   Liveness handlers must never call external dependencies — they only confirm the process is running. Readiness handlers may call dependencies but must complete fast (under 3s); a slow dependency must surface as not_ready, not as a hung probe. Both /health and /healthz must always return 200 once the process accepts connections, even when readiness is failing.
 // agent:   claude-opus-4-7 | anthropic | 2026-05-03 | track-9-health-ready-audit | added Probe + Mount + LegacyHealthcheck for /healthz + /readyz aliases
 // message:
