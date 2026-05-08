@@ -1,6 +1,9 @@
 package privacy
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestHeaderNameIsCanonicalCase(t *testing.T) {
 	if HeaderName != "X-Omur-Privacy-Class" {
@@ -53,5 +56,27 @@ func TestAllowsCloudOnlyBlocksSensitive(t *testing.T) {
 func TestStringConversionRoundTrips(t *testing.T) {
 	if string(ClassSensitive) != "sensitive" {
 		t.Fatalf("string(ClassSensitive) = %q, want sensitive", string(ClassSensitive))
+	}
+}
+
+func TestFromContextDefaultsToTenant(t *testing.T) {
+	if got := FromContext(context.Background()); got != ClassTenant {
+		t.Fatalf("FromContext(empty) = %q, want tenant", got)
+	}
+}
+
+func TestWithPrivacyClassRoundTrips(t *testing.T) {
+	for _, c := range []PrivacyClass{ClassPublic, ClassTenant, ClassSensitive} {
+		ctx := WithPrivacyClass(context.Background(), c)
+		if got := FromContext(ctx); got != c {
+			t.Errorf("FromContext after WithPrivacyClass(%q) = %q", c, got)
+		}
+	}
+}
+
+func TestFromContextEmptyValueFallsBackToDefault(t *testing.T) {
+	ctx := WithPrivacyClass(context.Background(), PrivacyClass(""))
+	if got := FromContext(ctx); got != ClassTenant {
+		t.Fatalf("FromContext(empty class) = %q, want tenant", got)
 	}
 }

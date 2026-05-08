@@ -1,6 +1,9 @@
 package privacy
 
-import "strings"
+import (
+	"context"
+	"strings"
+)
 
 // HeaderName is the canonical HTTP header carrying the per-request
 // PrivacyClass across service boundaries. Track 4 of
@@ -52,4 +55,28 @@ func ParsePrivacyClass(raw string) PrivacyClass {
 // boundary is permitted for this class. Sensitive is the only refusal.
 func AllowsCloud(c PrivacyClass) bool {
 	return c != ClassSensitive
+}
+
+// privacyClassKey is the unexported context key for the per-request
+// PrivacyClass. Keeping the type private prevents collisions with
+// other packages that store strings under the same key.
+type privacyClassKey struct{}
+
+// WithPrivacyClass returns a new context carrying the given PrivacyClass.
+// Spine middleware sets this once per request after parsing the header;
+// downstream services call FromContext to read it back.
+func WithPrivacyClass(ctx context.Context, c PrivacyClass) context.Context {
+	return context.WithValue(ctx, privacyClassKey{}, c)
+}
+
+// FromContext returns the PrivacyClass attached to the context, or
+// DefaultPrivacyClass if none is present. Never returns the zero value
+// of PrivacyClass — callers that branch on the result do not need to
+// guard against an empty class.
+func FromContext(ctx context.Context) PrivacyClass {
+	v, ok := ctx.Value(privacyClassKey{}).(PrivacyClass)
+	if !ok || v == "" {
+		return DefaultPrivacyClass()
+	}
+	return v
 }
