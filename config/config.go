@@ -41,9 +41,8 @@ type Base struct {
 	ValkeyPassword string
 
 	// Ollama
-	OllamaHost       string
-	OllamaChatModel  string
-	OllamaEmbedModel string
+	OllamaHost      string
+	OllamaChatModel string
 }
 
 // Load reads all base config from environment variables.
@@ -66,9 +65,8 @@ func Load() Base {
 		ValkeyPort:     envInt("VALKEY_PORT", 6379),
 		ValkeyPassword: envStr("VALKEY_PASSWORD", ""),
 
-		OllamaHost:       envStr("OLLAMA_HOST", "http://ollama:11434"),
-		OllamaChatModel:  envStr("OLLAMA_CHAT_MODEL", "qwen3:8b"),
-		OllamaEmbedModel: envStr("OLLAMA_EMBED_MODEL", "bge-m3"),
+		OllamaHost:      envStr("OLLAMA_HOST", "http://ollama:11434"),
+		OllamaChatModel: envStr("OLLAMA_CHAT_MODEL", "qwen3:8b"),
 	}
 }
 
