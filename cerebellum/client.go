@@ -254,28 +254,8 @@ func (c *Client) DetectLanguage(ctx context.Context, texts []string, requestID, 
 	return all, nil
 }
 
-// Translate translates texts to English.
-func (c *Client) Translate(ctx context.Context, texts []string, sourceLang string, requestID, tenantID string) ([]map[string]any, error) {
-	var all []map[string]any
-	for _, batch := range splitBatch(texts) {
-		payload := map[string]any{"texts": batch}
-		if sourceLang != "" {
-			payload["source_lang"] = sourceLang
-		}
-		result, err := c.post(ctx, "/translate", payload, requestID, tenantID)
-		if err != nil {
-			return nil, err
-		}
-		if results, ok := result["translations"].([]any); ok {
-			for _, r := range results {
-				if m, ok := r.(map[string]any); ok {
-					all = append(all, m)
-				}
-			}
-		}
-	}
-	return all, nil
-}
+// Translate removed in PLAN_TEI_MIGRATION P5 cleanup; the cerebellum
+// /translate endpoint retired in P0 (NLLB CC-BY-NC drop).
 
 // Embed gets embeddings for texts.
 func (c *Client) Embed(ctx context.Context, texts []string, requestID, tenantID string) ([][]float64, error) {
