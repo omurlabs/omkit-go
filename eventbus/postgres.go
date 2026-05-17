@@ -1,9 +1,9 @@
 // postgres.go — postgres module.
 //
-// exports: PostgresConfig | NewPostgresBus | Publish | PublishTenant | Subscribe | Close
+// exports: PostgresConfig | NewPostgresBus | Publish | PublishTenant | Subscribe | Close | NilTenantID
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
-// message: 
+// message:
 
 package eventbus
 
@@ -15,6 +15,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// NilTenantID is the nil-UUID sentinel for system-level events that have no
+// tenant context. Matches the pattern used by `security_events` and enforced
+// by the events RLS policy in migration 0005: a row stamped with this
+// sentinel is readable from a session that has set `app.role = 'admin'`,
+// and only writable by a session that has set `app.role = 'service'`. The
+// bus uses BYPASSRLS (`SET LOCAL row_security = off`) for the write itself,
+// but the row carries the sentinel so downstream admin readers can see it
+// without the previous NULL-tenant cross-tenant leak.
+const NilTenantID = "00000000-0000-0000-0000-000000000000"
 
 // PostgresConfig configures the Postgres-backed polling event bus.
 type PostgresConfig struct {
@@ -66,10 +76,18 @@ func (b *postgresBus) withBusRole(ctx context.Context, fn func(pgx.Tx) error) er
 	return tx.Commit(ctx)
 }
 
+// Publish writes a system-level event with the nil-UUID tenant sentinel
+// (NilTenantID). Before migration 0005 this method wrote NULL tenant_id;
+// the new RLS policy hides NULL rows from every connection except those
+// with `SET LOCAL row_security = off` (the bus itself), which left the
+// table internally inconsistent — admin-role readers and the tenant-scoped
+// `omur_app` read path could no longer see the rows. Writing the sentinel
+// closes that asymmetry while keeping the cross-tenant leak fixed.
 func (b *postgresBus) Publish(ctx context.Context, topic string, payload []byte) error {
 	return b.withBusRole(ctx, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx,
-			`INSERT INTO events (topic, payload) VALUES ($1, $2)`, topic, payload)
+			`INSERT INTO events (tenant_id, topic, payload) VALUES ($1::uuid, $2, $3)`,
+			NilTenantID, topic, payload)
 		return err
 	})
 }

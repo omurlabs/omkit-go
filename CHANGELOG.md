@@ -6,8 +6,20 @@ registry. This changelog tracks meaningful API additions/changes.
 
 ## Unreleased
 
+### Changed
+
+- `eventbus/postgres.go` — `Publish()` now stamps the nil-UUID sentinel
+  (`NilTenantID = "00000000-0000-0000-0000-000000000000"`) on system-level
+  events instead of writing NULL `tenant_id`. Aligns the SDK with the
+  RLS policy introduced in migration `0005_rls_with_check_and_events_sentinel`
+  so admin-role readers can see system events without re-opening the
+  cross-tenant leak the migration closed. Backfill of legacy NULL rows
+  ships in migration `0006_events_backfill_nil_tenant`. (#549)
+
 ### Added
 
+- `eventbus.NilTenantID` constant — the nil-UUID sentinel reserved for
+  system events. Mirrored by `omur_sdk.eventbus.NIL_TENANT_ID` in Python.
 - `crypto/` package: `Wrap`/`Unwrap` AES-256-GCM helpers, `KUser` session key
   type, and AAD purpose-string constants (`AADMeta`, `AADMetrics`,
   `AADContent`, `AADEmbeddingsChunks`) extracted from `services/spine/auth`.

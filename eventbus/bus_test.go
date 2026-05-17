@@ -59,6 +59,7 @@ func TestPostgresBusPublishSubscribe(t *testing.T) {
 	_, err := pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS events (
 			id BIGSERIAL PRIMARY KEY,
+			tenant_id UUID,
 			topic TEXT NOT NULL,
 			payload JSONB NOT NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -78,6 +79,18 @@ func TestPostgresBusPublishSubscribe(t *testing.T) {
 
 	if err := bus.Publish(ctx, "test.topic", []byte(`{"k":"v"}`)); err != nil {
 		t.Fatalf("Publish: %v", err)
+	}
+
+	// #549 — Publish() must stamp the nil-UUID sentinel so admin-role
+	// readers can see the row under the migration-0005 RLS policy.
+	var gotTenant string
+	if err := pool.QueryRow(ctx,
+		`SELECT tenant_id::text FROM events WHERE topic = 'test.topic' ORDER BY id DESC LIMIT 1`,
+	).Scan(&gotTenant); err != nil {
+		t.Fatalf("read tenant_id: %v", err)
+	}
+	if gotTenant != eventbus.NilTenantID {
+		t.Fatalf("Publish stored tenant_id = %q, want NilTenantID %q", gotTenant, eventbus.NilTenantID)
 	}
 
 	received := make(chan *eventbus.Event, 1)
