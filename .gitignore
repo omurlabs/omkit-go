@@ -1,0 +1,18 @@
+# Binaries
+*.exe
+*.test
+*.out
+
+# Vendored deps
+vendor/
+
+# Build output
+bin/
+dist/
+
+# Tooling
+.idea/
+.vscode/
+
+# OS
+.DS_Store
