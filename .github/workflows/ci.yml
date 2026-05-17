@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     name: build + vet + test
-    runs-on: [self-hosted, unraid]
+    runs-on: self-hosted
     timeout-minutes: 15
 
     services:
