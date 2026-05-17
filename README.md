@@ -103,7 +103,7 @@ all read from `context.Context`.
 | Package      | What it does                                                                |
 |--------------|-----------------------------------------------------------------------------|
 | `crypto`     | AES-256-GCM envelope encryption, `KUser` session keys, AAD constants (`AADMeta`, `AADMetrics`, `AADContent`, `AADEmbeddingsChunks`). |
-| `encryption` | Fernet-compatible encryption for settings secrets — interoperable with `omkit-python`'s `omkit.encryption`. |
+| `encryption` | AES-256-GCM string encryption for settings secrets — wire-compatible with `omkit-python`'s `omkit.encryption`. |
 | `kms`        | Ops-held key-wrapping interface (`KMS`) + `LocalDevKMS` for dev/tests.      |
 | `security`   | Security event logging (`WriteSecurityEvent`) for RAG classifier observations. |
 

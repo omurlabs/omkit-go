@@ -1,130 +1,112 @@
-// encryption.go — encryption module.
+// encryption.go — AES-256-GCM string encryption for tenant settings secrets.
 //
-// exports: ErrInvalidToken | ErrInvalidKey | GenerateKey | Encrypt | Decrypt | MaskSecret
-// rules:   none
-// agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
-// message: 
+// Thin string-in / string-out wrapper around `github.com/omurlabs/omkit-go/crypto`.
+// Used by settings stores (tenant_settings, account_keys, system_keys) that hold
+// a short, latency-insensitive secret as a URL-safe base64 token.
+//
+// Wire format (versioned):
+//
+//	base64.urlsafe("v1" || nonce(12) || ciphertext || tag(16))
+//
+// "v1" is a hard prefix so future rotations can ship a "v2" next to it without
+// guesswork. AAD is fixed to []byte("omkit.encryption.v1"); cross-module ciphertext
+// swaps fail at the GCM auth tag rather than silently decrypting.
+//
+// Cross-SDK contract: byte-identical to omkit-python's `omkit.encryption`.
+//
+// exports: ErrInvalidToken | ErrInvalidKey | KeySize | GenerateKey | Encrypt | Decrypt | MaskSecret
+// rules:   API surface (GenerateKey, Encrypt, Decrypt, MaskSecret) is stable. Internal crypto MUST come from omkit-go/crypto — no second AEAD impl in this module.
+// agent:   claude-opus-4-7 | anthropic | 2026-05-17 | claude-code | replaced Fernet/AES-CBC+HMAC with AES-256-GCM
 
-// Package encryption provides Fernet-compatible encryption for tenant-scoped settings secrets.
+// Package encryption provides AES-256-GCM encryption for tenant-scoped settings secrets.
 package encryption
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
-	"time"
+	"fmt"
+
+	"github.com/omurlabs/omkit-go/crypto"
 )
 
-// Fernet token format: Version (1) | Timestamp (8) | IV (16) | Ciphertext (n) | HMAC (32)
+// KeySize is the required raw-byte length of an `Encrypt`/`Decrypt` key.
+const KeySize = 32
 
 var (
+	// ErrInvalidToken is returned when the ciphertext is malformed, the
+	// version prefix mismatches, or the GCM authentication tag fails.
 	ErrInvalidToken = errors.New("invalid or corrupted token")
-	ErrInvalidKey   = errors.New("invalid key: must be 32 bytes URL-safe base64")
+	// ErrInvalidKey is returned when the key cannot be decoded to KeySize
+	// bytes of URL-safe base64.
+	ErrInvalidKey = errors.New("invalid key: must be 32 bytes URL-safe base64")
+
+	versionPrefix = []byte("v1")
+	aad           = []byte("omkit.encryption.v1")
 )
 
-// GenerateKey creates a new Fernet-compatible 32-byte key, URL-safe base64 encoded.
+// GenerateKey creates a fresh URL-safe base64 32-byte key.
+//
+// Output decodes back to exactly 32 raw bytes via decodeKey. Store in a secret
+// manager; never log the value.
 func GenerateKey() (string, error) {
-	key := make([]byte, 32)
+	key := make([]byte, KeySize)
 	if _, err := rand.Read(key); err != nil {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(key), nil
 }
 
-// Encrypt encrypts plaintext using a Fernet key. Returns URL-safe base64 token.
+// Encrypt encrypts plaintext under key. Returns a URL-safe base64 token whose
+// payload is `"v1" || nonce || ciphertext || tag`. Empty plaintext is supported.
 func Encrypt(plaintext, key string) (string, error) {
-	k, err := decodeKey(key)
+	kek, err := decodeKey(key)
 	if err != nil {
 		return "", err
 	}
-	signingKey := k[:16]
-	encryptionKey := k[16:]
-
-	iv := make([]byte, aes.BlockSize)
-	if _, err := rand.Read(iv); err != nil {
-		return "", err
-	}
-
-	// PKCS7 pad
-	padded := pkcs7Pad([]byte(plaintext), aes.BlockSize)
-
-	block, err := aes.NewCipher(encryptionKey)
+	blob, err := crypto.Wrap(kek, []byte(plaintext), aad)
 	if err != nil {
 		return "", err
 	}
-	ciphertext := make([]byte, len(padded))
-	cipher.NewCBCEncrypter(block, iv).CryptBlocks(ciphertext, padded)
-
-	// Build token: version(1) + timestamp(8) + iv(16) + ciphertext
-	now := uint64(time.Now().Unix())
-	token := make([]byte, 0, 1+8+16+len(ciphertext)+32)
-	token = append(token, 0x80) // version
-	ts := make([]byte, 8)
-	binary.BigEndian.PutUint64(ts, now)
-	token = append(token, ts...)
-	token = append(token, iv...)
-	token = append(token, ciphertext...)
-
-	// HMAC-SHA256
-	mac := hmac.New(sha256.New, signingKey)
-	mac.Write(token)
-	token = append(token, mac.Sum(nil)...)
-
-	return base64.URLEncoding.EncodeToString(token), nil
+	out := make([]byte, 0, len(versionPrefix)+len(blob))
+	out = append(out, versionPrefix...)
+	out = append(out, blob...)
+	return base64.URLEncoding.EncodeToString(out), nil
 }
 
-// Decrypt decrypts a Fernet token. Returns ErrInvalidToken on failure.
+// Decrypt reverses Encrypt. Returns ErrInvalidToken on version mismatch, base64
+// failure, or AEAD tag failure (wrong key, mutated bytes, AAD drift).
 func Decrypt(token, key string) (string, error) {
-	k, err := decodeKey(key)
+	kek, err := decodeKey(key)
 	if err != nil {
 		return "", err
 	}
-	signingKey := k[:16]
-	encryptionKey := k[16:]
-
 	raw, err := base64.URLEncoding.DecodeString(token)
 	if err != nil {
 		return "", ErrInvalidToken
 	}
-	if len(raw) < 1+8+16+16+32 { // min: version + ts + iv + 1 block + hmac
+	if len(raw) < len(versionPrefix)+12+16 {
 		return "", ErrInvalidToken
 	}
-	if raw[0] != 0x80 {
-		return "", ErrInvalidToken
+	for i, b := range versionPrefix {
+		if raw[i] != b {
+			return "", ErrInvalidToken
+		}
 	}
-
-	payload := raw[:len(raw)-32]
-	expectedMAC := raw[len(raw)-32:]
-
-	mac := hmac.New(sha256.New, signingKey)
-	mac.Write(payload)
-	if !hmac.Equal(mac.Sum(nil), expectedMAC) {
-		return "", ErrInvalidToken
-	}
-
-	iv := raw[9:25]
-	ciphertext := raw[25 : len(raw)-32]
-
-	block, err := aes.NewCipher(encryptionKey)
+	blob := raw[len(versionPrefix):]
+	plain, err := crypto.Unwrap(kek, blob, aad)
 	if err != nil {
 		return "", ErrInvalidToken
 	}
-	plain := make([]byte, len(ciphertext))
-	cipher.NewCBCDecrypter(block, iv).CryptBlocks(plain, ciphertext)
-
-	unpadded, err := pkcs7Unpad(plain)
-	if err != nil {
-		return "", ErrInvalidToken
-	}
-	return string(unpadded), nil
+	return string(plain), nil
 }
 
 // MaskSecret masks a secret for display.
+//
+//   - n >= 10: first 4 + "****" + last 4
+//   - 4 <= n <  10: first 2 + "****" + last 2
+//   - n  < 4: "****"
+//   - n == 0: ""
 func MaskSecret(value string) string {
 	n := len(value)
 	if n == 0 {
@@ -142,35 +124,10 @@ func MaskSecret(value string) string {
 func decodeKey(key string) ([]byte, error) {
 	k, err := base64.URLEncoding.DecodeString(key)
 	if err != nil {
-		return nil, ErrInvalidKey
+		return nil, fmt.Errorf("%w: %v", ErrInvalidKey, err)
 	}
-	if len(k) != 32 {
+	if len(k) != KeySize {
 		return nil, ErrInvalidKey
 	}
 	return k, nil
-}
-
-func pkcs7Pad(data []byte, blockSize int) []byte {
-	padding := blockSize - len(data)%blockSize
-	pad := make([]byte, padding)
-	for i := range pad {
-		pad[i] = byte(padding)
-	}
-	return append(data, pad...)
-}
-
-func pkcs7Unpad(data []byte) ([]byte, error) {
-	if len(data) == 0 {
-		return nil, ErrInvalidToken
-	}
-	padding := int(data[len(data)-1])
-	if padding == 0 || padding > len(data) {
-		return nil, ErrInvalidToken
-	}
-	for _, b := range data[len(data)-padding:] {
-		if int(b) != padding {
-			return nil, ErrInvalidToken
-		}
-	}
-	return data[:len(data)-padding], nil
 }
