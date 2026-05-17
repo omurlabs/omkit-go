@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/judge"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/provider"
+	"github.com/omurlabs/omkit-go/judge"
+	"github.com/omurlabs/omkit-go/provider"
 )
 
 type mockProvider struct {

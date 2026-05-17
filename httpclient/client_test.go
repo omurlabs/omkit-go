@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/httpclient"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/tenant"
+	"github.com/omurlabs/omkit-go/httpclient"
+	"github.com/omurlabs/omkit-go/tenant"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/trace"

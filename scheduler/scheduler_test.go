@@ -10,7 +10,7 @@ import (
 
 	"github.com/hibiken/asynq"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/jobqueue"
+	"github.com/omurlabs/omkit-go/jobqueue"
 )
 
 const tenantA = "11111111-1111-1111-1111-111111111111"

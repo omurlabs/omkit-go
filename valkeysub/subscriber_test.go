@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/valkeysub"
+	"github.com/omurlabs/omkit-go/valkeysub"
 )
 
 func TestNewSubscriber(t *testing.T) {

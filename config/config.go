@@ -5,7 +5,7 @@
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 
 
-// Package config provides base configuration for all Omur Go services.
+// Package config provides base configuration for Go services.
 // It reads environment variables with sensible defaults, mirroring
 // the Python BaseServiceSettings pattern.
 package config
@@ -17,9 +17,13 @@ import (
 	"strings"
 )
 
-// Base holds common env vars shared across all Omur backend services.
+// Base holds common env vars shared across backend services.
+//
+// Field names prefixed with `Omur*` and env-var names prefixed with `OMUR_*`
+// are retained for byte-compatibility with existing deployments; treat them
+// as the canonical operational namespace for this SDK release.
 type Base struct {
-	// Omur runtime
+	// Runtime
 	OmurMode        string // OMUR_MODE (standalone|connected)
 	OmurTenantToken string // OMUR_TENANT_TOKEN
 	OmurSettingsKey string // OMUR_SETTINGS_KEY

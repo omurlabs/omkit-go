@@ -5,7 +5,7 @@
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 
 
-// Package encryption provides Fernet-compatible encryption for Omur settings secrets.
+// Package encryption provides Fernet-compatible encryption for tenant-scoped settings secrets.
 package encryption
 
 import (

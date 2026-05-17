@@ -5,7 +5,7 @@
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 
 
-// Package tenant provides per-request tenant isolation for Omur services.
+// Package tenant provides per-request tenant isolation.
 //
 // Browser requests arrive with X-Auth-Request-User set by Caddy forward_auth
 // (Zitadel via oauth2-proxy). The middleware maps the value to a tenant UUID

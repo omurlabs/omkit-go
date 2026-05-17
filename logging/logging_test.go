@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
+	"github.com/omurlabs/omkit-go/requestid"
 )
 
 func captureWith(t *testing.T, env map[string]string, fn func(*slog.Logger)) string {

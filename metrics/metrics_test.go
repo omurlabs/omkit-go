@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/metrics"
+	"github.com/omurlabs/omkit-go/metrics"
 )
 
 func TestHandler_ExposesMetrics(t *testing.T) {

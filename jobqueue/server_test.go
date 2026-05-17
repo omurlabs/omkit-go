@@ -7,7 +7,7 @@ import (
 
 	"github.com/hibiken/asynq"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/tenant"
+	"github.com/omurlabs/omkit-go/tenant"
 )
 
 func TestWithTenantInjectsTenantAndStripsEnvelope(t *testing.T) {

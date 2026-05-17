@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/valkeysub"
+	"github.com/omurlabs/omkit-go/valkeysub"
 )
 
 // Manager holds a local in-memory copy of non-secret app settings.

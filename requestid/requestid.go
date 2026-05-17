@@ -23,7 +23,7 @@ import (
 )
 
 // HeaderName is the canonical wire header for the per-request correlation id.
-// All Omur services emit and accept this header on every hop.
+// All services emit and accept this header on every hop.
 const HeaderName = "X-Request-ID"
 
 type ctxKey struct{}

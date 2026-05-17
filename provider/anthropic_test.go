@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/provider"
+	"github.com/omurlabs/omkit-go/provider"
 )
 
 func TestAnthropic_ChatCompletion(t *testing.T) {

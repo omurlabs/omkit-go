@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/provider"
+	"github.com/omurlabs/omkit-go/provider"
 )
 
 const fallbackPrompt = `You are an LLM output quality judge. Score the following model response to a prompt.

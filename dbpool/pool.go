@@ -127,7 +127,7 @@ func New(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 // new connection. Token-based session lookup (Get/Delete) takes an opaque
 // token without knowing the tenant, so SELECT/DELETE under a role subject
 // to the sessions_tenant_isolation RLS policy would silently return zero
-// rows. Connecting as the default omur superuser (which has BYPASSRLS)
+// rows. Connecting as the default superuser (which has BYPASSRLS)
 // lets token lookup cross tenants; writes (Put, List) still run inside a
 // transaction that sets app.tenant_id so RLS is honored for multi-tenant
 // mutations.

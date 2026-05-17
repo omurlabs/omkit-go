@@ -11,7 +11,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/valkeystream"
+	"github.com/omurlabs/omkit-go/valkeystream"
 )
 
 // RedisConfig configures the Redis/Valkey-backed event bus, wrapping the

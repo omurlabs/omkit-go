@@ -5,7 +5,7 @@
 // agent:   batch-log-structuring | claude | 2026-05-02 | claude | env-driven level/format + ctx helper
 // message: structured slog with LOG_LEVEL/LOG_FORMAT env + request_id-from-ctx helper
 
-// Package logging provides structured logging for Omur Go services using slog.
+// Package logging provides structured logging for Go services using slog.
 //
 // Default output is JSON, suitable for production log aggregation. Set
 // LOG_FORMAT=text (or =console) to switch to the human-readable handler
@@ -18,7 +18,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
+	"github.com/omurlabs/omkit-go/requestid"
 )
 
 // Init configures the default slog logger and returns it. Reads LOG_LEVEL

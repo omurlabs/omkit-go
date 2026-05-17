@@ -14,7 +14,7 @@ import (
 
 	"github.com/hibiken/asynq"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/tenant"
+	"github.com/omurlabs/omkit-go/tenant"
 )
 
 // NewServer builds an Asynq server pinned to cfg.QueueName with cfg.Concurrency
@@ -42,8 +42,8 @@ func NewServer(cfg Config) (*asynq.Server, error) {
 }
 
 // WithTenant is an asynq middleware that unwraps the SDK Envelope, attaches
-// the tenant_id to ctx (via the omur-go-sdk tenant package), and invokes the
-// next handler with the rewritten task whose payload is the inner JSON.
+// the tenant_id to ctx (via the tenant package), and invokes the next handler
+// with the rewritten task whose payload is the inner JSON.
 //
 // Invalid envelopes are dead-lettered (asynq.SkipRetry) — retrying a malformed
 // envelope can never succeed.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/valkeystream"
+	"github.com/omurlabs/omkit-go/valkeystream"
 )
 
 func skipIfNoValkey(t *testing.T) *valkeystream.Stream {

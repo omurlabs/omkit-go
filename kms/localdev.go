@@ -12,7 +12,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 
-	cryptopkg "github.com/omurlabs/omur-core/packages/omur-go-sdk/crypto"
+	cryptopkg "github.com/omurlabs/omkit-go/crypto"
 )
 
 // LocalDevKMS is an in-process adapter for dev and integration tests.

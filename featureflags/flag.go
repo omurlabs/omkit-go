@@ -5,17 +5,17 @@
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 
 
-// Package featureflags provides a shared role-scoped feature-flag primitive
-// for Omur services. A flag is {Enabled: bool, Roles: []auth.Role}; a caller
-// is Allowed iff the flag is enabled AND the caller's roles intersect the
-// allowlist. Unknown flag denies; empty roles slice denies everyone.
+// Package featureflags provides a shared role-scoped feature-flag primitive.
+// A flag is {Enabled: bool, Roles: []auth.Role}; a caller is Allowed iff the
+// flag is enabled AND the caller's roles intersect the allowlist. Unknown
+// flag denies; empty roles slice denies everyone.
 //
-// The only enforcement boundary in Omur is Spine (all user HTTP enters there
-// and internal services trust Spine). Other services can adopt Store + Allowed
-// on demand if they grow user-exposed HTTP.
+// Typical deployment puts enforcement at the gateway (all user HTTP enters
+// there and internal services trust the gateway). Other services can adopt
+// Store + Allowed on demand if they grow user-exposed HTTP.
 package featureflags
 
-import "github.com/omurlabs/omur-core/packages/omur-go-sdk/auth"
+import "github.com/omurlabs/omkit-go/auth"
 
 // Flag is the normalized shape of one feature flag.
 type Flag struct {

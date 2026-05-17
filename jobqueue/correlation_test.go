@@ -8,7 +8,7 @@ import (
 
 	"github.com/hibiken/asynq"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/tenant"
+	"github.com/omurlabs/omkit-go/tenant"
 )
 
 const corrTenant = "22222222-2222-2222-2222-222222222222"

@@ -64,7 +64,7 @@ func WriteSecurityEvent(ctx context.Context, pool *pgxpool.Pool, e SecurityEvent
 
 	// Marshal evidence to a string so it round-trips through simple-protocol
 	// mode (PgBouncer compat) without being mis-encoded as bytea. See the
-	// identical rationale in packages/omur-go-sdk/auth/audit.go.
+	// identical rationale in auth/audit.go.
 	var evidenceParam any
 	if e.Evidence != nil {
 		b, err := json.Marshal(e.Evidence)

@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/config"
+	"github.com/omurlabs/omkit-go/config"
 )
 
 func TestEnvInt64_FallsBackOnEmpty(t *testing.T) {

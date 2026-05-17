@@ -7,7 +7,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/tracing"
+	"github.com/omurlabs/omkit-go/tracing"
 )
 
 // TestInit_AcceptsVersion locks in the three-arg signature

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/auth"
+	"github.com/omurlabs/omkit-go/auth"
 )
 
 // captureHandler returns the roles attached to the request context.

@@ -13,7 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
+	"github.com/omurlabs/omkit-go/requestid"
 )
 
 // WorkerContext returns a child of parent with a fresh UUID v4 attached as the

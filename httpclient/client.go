@@ -18,8 +18,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/tenant"
+	"github.com/omurlabs/omkit-go/requestid"
+	"github.com/omurlabs/omkit-go/tenant"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 

@@ -18,7 +18,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/logging"
+	"github.com/omurlabs/omkit-go/logging"
 )
 
 type Config struct {

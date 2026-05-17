@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/auth"
+	"github.com/omurlabs/omkit-go/auth"
 )
 
 // AdminConfig configures the admin role-mapping middleware.

@@ -5,7 +5,7 @@
 // agent:   claude-opus-4-7 | anthropic | 2026-05-03 | track-9-health-ready-audit | added Probe + Mount + LegacyHealthcheck for /healthz + /readyz aliases
 // message:
 
-// Package health provides standard HTTP health check handlers for Omur services.
+// Package health provides standard HTTP health check handlers.
 //
 // Two paths convey two different signals:
 //
@@ -123,7 +123,7 @@ type Muxer interface {
 //	GET /health   GET /healthz   →  liveness (200, no deps)
 //	GET /ready    GET /readyz    →  readiness (probes; 200 or 503)
 //
-// Every Omur service that exposes HTTP should call this. Pass zero probes
+// Every service that exposes HTTP should call this. Pass zero probes
 // for services that have no external dependencies to gate; they report
 // "ready" immediately.
 func Mount(mux Muxer, service, version string, probes ...Probe) {

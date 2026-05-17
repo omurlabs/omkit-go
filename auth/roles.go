@@ -6,7 +6,7 @@
 // message: 
 
 // Package auth provides the role catalog and authorization helpers shared
-// across Omur Go services. Identity comes from Zitadel (forward_auth headers
+// across Go services. Identity comes from Zitadel (forward_auth headers
 // via oauth2-proxy); roles are computed from group membership using a
 // hardcoded map.
 //

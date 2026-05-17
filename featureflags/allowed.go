@@ -10,7 +10,7 @@ package featureflags
 import (
 	"context"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/auth"
+	"github.com/omurlabs/omkit-go/auth"
 )
 
 // Allowed reports whether the caller in ctx is permitted to see the feature

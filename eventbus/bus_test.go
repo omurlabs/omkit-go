@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/eventbus"
+	"github.com/omurlabs/omkit-go/eventbus"
 )
 
 func TestEventInterface(t *testing.T) {

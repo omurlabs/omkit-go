@@ -37,7 +37,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/jobqueue"
+	"github.com/omurlabs/omkit-go/jobqueue"
 )
 
 // ProviderSource is the data path the reconcile loop reads from. The

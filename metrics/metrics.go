@@ -5,7 +5,7 @@
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 
 
-// Package metrics provides Prometheus instrumentation helpers for Omur services.
+// Package metrics provides Prometheus instrumentation helpers.
 //
 // Usage:
 //

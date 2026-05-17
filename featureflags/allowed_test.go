@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/auth"
+	"github.com/omurlabs/omkit-go/auth"
 )
 
 func TestAllowed_FlagDisabled_ReturnsFalse(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/health"
+	"github.com/omurlabs/omkit-go/health"
 )
 
 func TestHealthHandler(t *testing.T) {

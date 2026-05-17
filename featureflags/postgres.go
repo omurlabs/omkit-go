@@ -18,7 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/auth"
+	"github.com/omurlabs/omkit-go/auth"
 )
 
 // refresherFunc fetches the current flag map from a backing store.

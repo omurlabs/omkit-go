@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
+	"github.com/omurlabs/omkit-go/requestid"
 )
 
 func TestNewContext_RoundTrip(t *testing.T) {

@@ -23,7 +23,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/dbpool"
+	"github.com/omurlabs/omkit-go/dbpool"
 )
 
 // Resource names the quota dimension being checked.

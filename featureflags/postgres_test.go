@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/auth"
+	"github.com/omurlabs/omkit-go/auth"
 )
 
 // fakeRefresher counts refresh calls and lets us control whether the refresh

@@ -7,9 +7,9 @@
 
 // Package jobqueue provides shared primitives for Asynq-backed job queues.
 //
-// The Envelope is the cross-SDK contract: every task payload enqueued from any
-// Omur service is wrapped in {version, tenant_id, payload}. Workers unwrap on
-// receive, validate, and run the handler under the tenant's RLS scope.
+// The Envelope is the cross-SDK contract: every task payload is wrapped in
+// {version, tenant_id, payload}. Workers unwrap on receive, validate, and run
+// the handler under the tenant's RLS scope.
 package jobqueue
 
 import (

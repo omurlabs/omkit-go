@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/settings"
+	"github.com/omurlabs/omkit-go/settings"
 )
 
 func newTestPool(t *testing.T) *pgxpool.Pool {

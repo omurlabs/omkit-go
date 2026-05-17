@@ -5,7 +5,7 @@
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
 // message: 
 
-// Package middleware provides common HTTP middleware for Omur Go services.
+// Package middleware provides common HTTP middleware for Go services.
 package middleware
 
 import (
@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
+	"github.com/omurlabs/omkit-go/requestid"
 )
 
 // CORS wraps a handler with CORS headers based on allowed origins.

@@ -1,4 +1,4 @@
-module github.com/omurlabs/omur-core/packages/omur-go-sdk
+module github.com/omurlabs/omkit-go
 
 go 1.26.3
 

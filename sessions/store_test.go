@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/sessions"
+	"github.com/omurlabs/omkit-go/sessions"
 )
 
 func TestStoreInterfaceShape(t *testing.T) {

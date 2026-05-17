@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/cleanup"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
+	"github.com/omurlabs/omkit-go/cleanup"
+	"github.com/omurlabs/omkit-go/requestid"
 )
 
 func testPool(t *testing.T) *pgxpool.Pool {

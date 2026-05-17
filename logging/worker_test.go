@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/requestid"
+	"github.com/omurlabs/omkit-go/requestid"
 )
 
 func captureWorker(t *testing.T, fn func()) string {

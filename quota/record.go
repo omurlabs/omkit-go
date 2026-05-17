@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/dbpool"
+	"github.com/omurlabs/omkit-go/dbpool"
 )
 
 // RecordUsage inserts a row into usage_log so queries_per_month quota counters

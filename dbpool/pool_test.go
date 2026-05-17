@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/dbpool"
+	"github.com/omurlabs/omkit-go/dbpool"
 )
 
 // TestNewPoolSetsRoleOnEachConnection verifies that a pool created with NewPool

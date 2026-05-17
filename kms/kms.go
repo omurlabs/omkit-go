@@ -9,7 +9,7 @@ package kms
 
 import "context"
 
-// KMS is the interface Omur services call for ops-held wrapping.
+// KMS is the interface services call for ops-held wrapping.
 // Production deployments inject an AWS/GCP/Vault-backed implementation.
 //
 // Static-key flow (tenant / system api_key encryption):

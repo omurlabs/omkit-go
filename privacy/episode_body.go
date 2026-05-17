@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/crypto"
-	"github.com/omurlabs/omur-core/packages/omur-go-sdk/kms"
+	"github.com/omurlabs/omkit-go/crypto"
+	"github.com/omurlabs/omkit-go/kms"
 )
 
 // SchemaV1 is the only supported envelope schema for this package release.
