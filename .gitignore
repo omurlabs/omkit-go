@@ -16,3 +16,13 @@ dist/
 
 # OS
 .DS_Store
+
+# Claude Code project config
+# Global ~/.gitignore_global ignores .claude/ wholesale; this project
+# versions agents while keeping user-local settings private.
+!.claude/
+!.claude/agents/
+!.claude/agents/*.md
+.claude/settings.local.json
+.claude/worktrees/
+.claude/scheduled_tasks.lock
