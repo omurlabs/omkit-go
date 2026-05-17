@@ -1,17 +1,13 @@
 // Package cost emits provider cost telemetry as a single Prometheus
-// counter. Track 3 of
-// docs/superpowers/plans/2026-05-03-cloud-readiness-prep.md.
+// counter.
 //
-// Cortex tracks LLM tokens and dollars; the rest of the stack —
-// marrow embedder/extractor, cerebellum reranker, auris STT/TTS —
-// emits no comparable signal. This package gives every service the
-// same shape so "Projected Cloud Spend" panels can compare providers
-// before any cloud switch is flipped.
+// Each service emits the same metric shape so "projected cloud spend"
+// panels can compare providers before any cloud switch is flipped.
 //
-// The counter omur_cost_units_total carries a fixed low-cardinality
+// The counter cost_units_total carries a fixed low-cardinality
 // label set so VictoriaMetrics scrape stays cheap:
 //
-//   - service       — emitting service name (cortex, synapse, …).
+//   - service       — emitting service name.
 //   - provider      — backend identifier (local, voyage, openai, …).
 //   - op            — operation name (embed, parse_pages, rerank,
 //                     stt_seconds, tts_chars).
@@ -31,7 +27,7 @@ import (
 // CostUnitsTotal counts billable units emitted by provider calls.
 var CostUnitsTotal = promauto.NewCounterVec(
 	prometheus.CounterOpts{
-		Name: "omur_cost_units_total",
+		Name: "cost_units_total",
 		Help: "Billable units emitted by a provider call (tokens, pages, seconds, chars).",
 	},
 	[]string{"service", "provider", "op", "tenant_bucket"},
@@ -46,7 +42,7 @@ var validBuckets = map[string]struct{}{
 	"paid":   {},
 }
 
-// RecordCost increments omur_cost_units_total for one provider call.
+// RecordCost increments cost_units_total for one provider call.
 //
 // units <= 0 is a no-op — counters cannot decrease and a non-positive
 // input is always a caller bug. Emission failures (e.g. registry-side

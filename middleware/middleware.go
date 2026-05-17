@@ -70,7 +70,7 @@ func matchWildcard(patterns []string, origin string) bool {
 // Skips auth for health/ready endpoints.
 //
 // If token is empty, BearerAuth is a no-op (dev mode). Production services
-// SHOULD use MustBearerAuth instead so an unset OMUR_TENANT_TOKEN fails at
+// SHOULD use MustBearerAuth instead so an unset TENANT_TOKEN fails at
 // startup rather than silently disabling authentication at runtime.
 func BearerAuth(token string, next http.Handler) http.Handler {
 	if token == "" {
@@ -101,7 +101,7 @@ func BearerAuth(token string, next http.Handler) http.Handler {
 // helper over BearerAuth in production paths.
 func MustBearerAuth(token string, next http.Handler) http.Handler {
 	if token == "" {
-		panic("middleware: MustBearerAuth requires a non-empty token (set OMUR_TENANT_TOKEN)")
+		panic("middleware: MustBearerAuth requires a non-empty token (set TENANT_TOKEN)")
 	}
 	return BearerAuth(token, next)
 }

@@ -3,11 +3,11 @@
 // exports: Base | Load | PostgresDSN | ValkeyAddr | CORSOriginsList | EnvStr | EnvInt | EnvBool | EnvInt64
 // rules:   none
 // agent:   codedna-cli (no-llm) | codedna-cli | 2026-04-30 | codedna-cli | initial CodeDNA annotation pass
-// message: 
+// message:
 
 // Package config provides base configuration for Go services.
-// It reads environment variables with sensible defaults, mirroring
-// the Python BaseServiceSettings pattern.
+// Reads environment variables; defaults are intentionally minimal so
+// consumers must supply deployment-specific values.
 package config
 
 import (
@@ -18,16 +18,12 @@ import (
 )
 
 // Base holds common env vars shared across backend services.
-//
-// Field names prefixed with `Omur*` and env-var names prefixed with `OMUR_*`
-// are retained for byte-compatibility with existing deployments; treat them
-// as the canonical operational namespace for this SDK release.
 type Base struct {
 	// Runtime
-	OmurMode        string // OMUR_MODE (standalone|connected)
-	OmurTenantToken string // OMUR_TENANT_TOKEN
-	OmurSettingsKey string // OMUR_SETTINGS_KEY
-	AppVersion      string // APP_VERSION (semantic version injected at build time)
+	Mode         string // RUNTIME_MODE (standalone|connected)
+	TenantToken  string // TENANT_TOKEN
+	SettingsKey  string // SETTINGS_KEY
+	AppVersion   string // APP_VERSION (semantic version injected at build time)
 
 	// CORS
 	CORSOrigins string // CORS_ORIGINS
@@ -52,17 +48,17 @@ type Base struct {
 // Load reads all base config from environment variables.
 func Load() Base {
 	return Base{
-		OmurMode:        envStr("OMUR_MODE", "standalone"),
-		OmurTenantToken: envStr("OMUR_TENANT_TOKEN", ""),
-		OmurSettingsKey: envStr("OMUR_SETTINGS_KEY", ""),
-		AppVersion:      envStr("APP_VERSION", "dev"),
+		Mode:        envStr("RUNTIME_MODE", "standalone"),
+		TenantToken: envStr("TENANT_TOKEN", ""),
+		SettingsKey: envStr("SETTINGS_KEY", ""),
+		AppVersion:  envStr("APP_VERSION", "dev"),
 
-		CORSOrigins: envStr("CORS_ORIGINS", "https://omur.local,http://localhost:3000"),
+		CORSOrigins: envStr("CORS_ORIGINS", ""),
 
 		PostgresHost:     envStr("POSTGRES_HOST", "pgbouncer"),
 		PostgresPort:     envInt("POSTGRES_PORT", 6432),
-		PostgresDB:       envStr("POSTGRES_DB", "omur"),
-		PostgresUser:     envStr("POSTGRES_USER", "omur"),
+		PostgresDB:       envStr("POSTGRES_DB", ""),
+		PostgresUser:     envStr("POSTGRES_USER", ""),
 		PostgresPassword: envStr("POSTGRES_PASSWORD", ""),
 
 		ValkeyHost:     envStr("VALKEY_HOST", "valkey"),
