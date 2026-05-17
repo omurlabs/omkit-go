@@ -12,7 +12,7 @@ envelope contract that interoperates with the Python sibling.
 
 - **Status:** `v0.1.0` — internal API stable.
 - **Go:** `1.26.3` (`go.mod`)
-- **License:** Apache-2.0 *(planned)*
+- **License:** Apache-2.0
 - **Sibling:** [`omkit-python`](https://github.com/omurlabs/omkit-python) — same primitives, same envelope contract, same RLS conventions.
 
 ## Install

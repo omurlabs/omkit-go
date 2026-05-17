@@ -42,8 +42,8 @@ type AdminConfig struct {
 // through Caddy forward_auth (e.g. a service is briefly exposed on a
 // non-Caddy port, or a peer on the backend network bypasses the proxy),
 // the headers are attacker-controlled. BearerAuth's X-Service-Token
-// requirement is the only defense in that scenario. Do NOT expose Spine
-// outside the Caddy/proxy boundary.
+// requirement is the only defense in that scenario. Do NOT expose the
+// consuming service outside the Caddy/proxy boundary.
 func AdminMiddleware(cfg AdminConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

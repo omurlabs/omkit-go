@@ -155,8 +155,7 @@ func WithServiceToken(token string) Option {
 
 // WithTenantHeaderFromContext auto-sets X-Tenant-ID on every outbound request
 // from tenant.FromContext(ctx). No-op when the context has no tenant. Intended
-// for service-to-service callers that proxy a per-request tenant (e.g. Spine's
-// voice proxy, Reflex → Auris, Marrow → Cerebellum).
+// for service-to-service callers that proxy a per-request tenant.
 func WithTenantHeaderFromContext() Option {
 	return func(c *Client) { c.tenantFromContext = true }
 }

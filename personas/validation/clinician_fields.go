@@ -5,7 +5,7 @@
 // agent:   codedna-cli | 2026-05-02 | extract from cortex/personas/validation
 
 // Package validation provides the content-validation pipeline for persona
-// config writes. Used by both Cortex (YAML import) and Spine (admin PATCH).
+// config writes. Used by both the YAML import path and the admin PATCH path.
 // See spec §4.9 for the canonical clinician-only field set.
 package validation
 

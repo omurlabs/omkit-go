@@ -12,16 +12,17 @@ package sessions
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
 // Session is the canonical session record shared by all Store implementations.
 type Session struct {
-	Token     string
-	TenantID  string
-	Payload   []byte
-	CreatedAt time.Time
-	ExpiresAt time.Time
+	Token     string          `json:"token"`
+	TenantID  string          `json:"tenant_id"`
+	Payload   json.RawMessage `json:"payload"`
+	CreatedAt time.Time       `json:"created_at"`
+	ExpiresAt time.Time       `json:"expires_at"`
 }
 
 // Store is the backend-agnostic contract for persisting sessions.

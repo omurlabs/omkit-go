@@ -11,10 +11,9 @@
 //   - WithRequestIDPropagation helper that copies the id from ctx onto an
 //     outbound *http.Request before it is dispatched.
 //
-// Spine ingress (services/spine/middleware/correlation_id.go) installs the id
-// into ctx after validating it as UUID-v4. Downstream callers retrieve it via
-// FromContext or by using the SDK httpclient option WithRequestIDFromContext
-// (defined in the httpclient package).
+// The ingress service installs the id into ctx after validating it as UUID-v4.
+// Downstream callers retrieve it via FromContext or by using the SDK httpclient
+// option WithRequestIDFromContext (defined in the httpclient package).
 package requestid
 
 import (

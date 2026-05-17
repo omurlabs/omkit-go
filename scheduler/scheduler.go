@@ -8,19 +8,19 @@
 // Package scheduler wraps Asynq Scheduler with a DB-driven reconcile loop.
 //
 // The Asynq Scheduler API requires callers to Register cron entries one-by-one
-// and surrender Unregister responsibility on change. For services like Pulse
-// that derive schedules from a database (one entry per (tenant, provider)
-// row), this package owns the reconcile pattern: every PollInterval it queries
-// the providers table, diffs the desired state against the registered entries,
+// and surrender Unregister responsibility on change. For services that derive
+// schedules from a database (one entry per (tenant, provider) row), this
+// package owns the reconcile pattern: every PollInterval it queries the
+// providers table, diffs the desired state against the registered entries,
 // and Register/Unregisters to converge.
 //
 // Cross-replica caveat: Asynq Scheduler does NOT dedupe firings across
-// replicas — running two pulse instances against the same Valkey will
-// enqueue the same task twice per cronspec firing. The spec line claiming
-// internal SETNX coordination was wrong; the asynq Scheduler tracks entries
-// in Redis but each replica fires its own. Services that use this package
-// must deploy as a single replica until either (a) leader election is added
-// here, or (b) handler-side idempotency makes duplicate firings harmless.
+// replicas — running two instances of the scheduler service against the same
+// Valkey will enqueue the same task twice per cronspec firing. The asynq
+// Scheduler tracks entries in Redis but each replica fires its own. Services
+// that use this package must deploy as a single replica until either (a)
+// leader election is added here, or (b) handler-side idempotency makes
+// duplicate firings harmless.
 package scheduler
 
 import (
@@ -46,9 +46,9 @@ type ProviderSource interface {
 	FetchProviders(ctx context.Context, kind string) ([]Provider, error)
 }
 
-// PgxProviderSource queries the providers table via a pgxpool.Pool. Pulse
-// passes a BYPASSRLS schema-owner pool because the read is intentionally
-// cross-tenant.
+// PgxProviderSource queries the providers table via a pgxpool.Pool. Callers
+// typically pass a BYPASSRLS schema-owner pool because the read is
+// intentionally cross-tenant.
 type PgxProviderSource struct{ Pool *pgxpool.Pool }
 
 func (p PgxProviderSource) FetchProviders(ctx context.Context, kind string) ([]Provider, error) {
@@ -100,7 +100,7 @@ type Asynq interface {
 }
 
 // Enqueuer is the narrow interface for the immediate-poll-on-register hook.
-// Pulse passes a *jobqueue.Client adapter; tests pass a stub.
+// Callers typically pass a *jobqueue.Client adapter; tests pass a stub.
 type Enqueuer interface {
 	Enqueue(ctx context.Context, taskType, tenantID string, payload any, opts ...asynq.Option) (*asynq.TaskInfo, error)
 }
@@ -110,8 +110,8 @@ type Scheduler struct {
 	asynq        Asynq
 	source       ProviderSource
 	kind         string // providers.kind value, e.g. "collector"
-	queue        string // Asynq queue name, e.g. "pulse"
-	taskType     string // task type, e.g. "pulse:provider-sync"
+	queue        string // Asynq queue name, e.g. "scheduler"
+	taskType     string // task type, e.g. "scheduler:provider-sync"
 	deriveCron   CronDeriver
 	pollInterval time.Duration
 	enqueuer     Enqueuer // optional; immediate poll on first registration
@@ -139,15 +139,15 @@ func WithPollInterval(d time.Duration) Option {
 
 // WithImmediateOnRegister enqueues one task as soon as a new (tenant,
 // provider) row is registered. Restores the "first poll on start" behaviour
-// from the legacy ticker loops.
+// from legacy ticker loops.
 func WithImmediateOnRegister(e Enqueuer) Option {
 	return func(s *Scheduler) { s.enqueuer = e }
 }
 
 // New builds a Scheduler. asynqClient is typically jobqueue.NewScheduler(cfg).
-// source is the providers-table reader; pulse passes a PgxProviderSource
-// backed by a BYPASSRLS schema-owner pool because the read is intentionally
-// cross-tenant.
+// source is the providers-table reader; callers typically pass a
+// PgxProviderSource backed by a BYPASSRLS schema-owner pool because the read
+// is intentionally cross-tenant.
 func New(asynqClient Asynq, source ProviderSource, kind, queue, taskType string, deriveCron CronDeriver, opts ...Option) *Scheduler {
 	s := &Scheduler{
 		asynq:        asynqClient,

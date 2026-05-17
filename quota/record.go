@@ -17,9 +17,9 @@ import (
 )
 
 // RecordUsage inserts a row into usage_log so queries_per_month quota counters
-// advance. It is the write side of the quota contract — quota enforcement at
-// Spine's quotaMiddleware reads usage_log; without this write, the enforcement
-// is silently a no-op. Callers should invoke this after any successful LLM
+// advance. It is the write side of the quota contract — the consuming service's
+// quota middleware reads usage_log; without this write, the enforcement is
+// silently a no-op. Callers should invoke this after any successful LLM
 // completion (chat, embed, tool call) on behalf of a tenant.
 //
 // tenantID must be a valid UUID string; empty tenantID is a no-op rather than

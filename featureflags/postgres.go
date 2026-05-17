@@ -31,7 +31,8 @@ type refresherFunc func(ctx context.Context) (map[string]Flag, error)
 //   - Refresh triggers collapsed by singleflight (one DB roundtrip per TTL window).
 //   - On refresh error, the cache is NOT zeroed — stale served, logger warns.
 //   - Invalidate(key) publishes a new map with the key removed. LOCAL to this
-//     process; other Spine replicas pick up changes within TTL (typically 30s).
+//     process; other replicas of the consuming service pick up changes within
+//     TTL (typically 30s).
 //
 // The TTL bounds FLAG staleness, not USER-ROLE staleness — roles come from
 // forward-auth headers via auth.RolesFromContext every request.
@@ -168,12 +169,12 @@ func loadFromPool(ctx context.Context, pool *pgxpool.Pool) (map[string]Flag, err
 }
 
 // ParseFromJSON accepts BOTH the legacy bare-bool shape and the new object
-// shape so Spine can deploy before the rewrap migration runs. Exported so
-// Spine's GET /admin/feature-flags can share the exact same parsing logic
-// the Store uses internally.
+// shape so callers can deploy before the rewrap migration runs. Exported so
+// admin feature-flag endpoints can share the exact same parsing logic the
+// Store uses internally.
 //
-// TODO(remove after migration 010 confirmed applied on every deployed stack):
-// delete the bare-bool branch below.
+// TODO: drop the legacy fallback once all consumers have applied the
+// corresponding schema migration.
 func ParseFromJSON(raw []byte) Flag {
 	// bare bool
 	var b bool
