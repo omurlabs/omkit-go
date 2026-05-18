@@ -1,0 +1,129 @@
+name: Bug report
+description: Report a bug in omkit-go — unexpected behaviour, crash, or regression.
+title: "[bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. The fields below help us
+        triage and reproduce. Vague reports without a repro or version block
+        usually stall — please fill in everything you can.
+
+        For security vulnerabilities, **do not file a public issue**. See
+        [`SECURITY.md`](https://github.com/omurlabs/omkit-go/blob/main/SECURITY.md).
+
+  - type: input
+    id: omkit_go_version
+    attributes:
+      label: omkit-go version
+      description: Output of `go list -m github.com/omurlabs/omkit-go` or the git SHA if running from source.
+      placeholder: "v0.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: go_version
+    attributes:
+      label: Go toolchain version
+      description: Output of `go version`.
+      placeholder: "go1.26.3 darwin/arm64"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Affected package
+      multiple: true
+      options:
+        - auth
+        - cleanup
+        - config
+        - cost
+        - crypto
+        - dbpool
+        - encryption
+        - eventbus
+        - featureflags
+        - health
+        - httpclient
+        - jobqueue
+        - kms
+        - logging
+        - metrics
+        - middleware
+        - provider
+        - quota
+        - requestid
+        - scheduler
+        - security
+        - sessions
+        - settings
+        - syncnotifier
+        - tenant
+        - tracing
+        - valkeystream
+        - valkeysub
+        - Other / unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: A clear description of the actual behaviour.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_expected
+    attributes:
+      label: What you expected
+      description: What did you expect the SDK to do? Cite the README / godoc / spec, if possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: |
+        Smallest viable Go program / SQL / config that reproduces the bug.
+        Include the input data shape and any environment variables.
+      render: go
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        OS / arch (e.g. `darwin/arm64`, `linux/amd64`), Postgres / Valkey
+        versions if relevant, and any `OMUR_*` envs (with secrets redacted).
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Last ~50 lines of slog output around the failure.
+        **Redact `tenant_id` and any payload bodies you don't want public.**
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I have searched [existing issues](https://github.com/omurlabs/omkit-go/issues?q=is%3Aissue) and this is not a duplicate.
+          required: true
+        - label: This is not a security vulnerability (those go via [`SECURITY.md`](https://github.com/omurlabs/omkit-go/blob/main/SECURITY.md) instead).
+          required: true

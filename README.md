@@ -1,5 +1,11 @@
 # omkit-go
 
+[![ci](https://github.com/omurlabs/omkit-go/actions/workflows/ci.yml/badge.svg)](https://github.com/omurlabs/omkit-go/actions/workflows/ci.yml)
+[![security](https://github.com/omurlabs/omkit-go/actions/workflows/security.yml/badge.svg)](https://github.com/omurlabs/omkit-go/actions/workflows/security.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/omurlabs/omkit-go.svg)](https://pkg.go.dev/github.com/omurlabs/omkit-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/omurlabs/omkit-go)](https://goreportcard.com/report/github.com/omurlabs/omkit-go)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 Multi-tenant SaaS scaffolding for Go services.
 
 `omkit-go` is the Go side of Omur Labs' shared service toolkit. It bundles the
