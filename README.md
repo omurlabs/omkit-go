@@ -16,7 +16,7 @@ stores, an LLM provider abstraction, BYOK encryption + KMS, request-ID
 propagation, an Asynq-based job queue with cron scheduling, and a job-queue
 envelope contract that interoperates with the Python sibling.
 
-- **Status:** `v0.1.0` — internal API stable.
+- **Status:** `v0.2.0` — internal API stable.
 - **Go:** `1.26.3` (`go.mod`)
 - **License:** Apache-2.0
 - **Sibling:** [`omkit-python`](https://github.com/omurlabs/omkit-python) — same primitives, same envelope contract, same RLS conventions.
@@ -24,7 +24,7 @@ envelope contract that interoperates with the Python sibling.
 ## Install
 
 ```bash
-go get github.com/omurlabs/omkit-go@v0.1.0
+go get github.com/omurlabs/omkit-go@v0.2.0
 ```
 
 Import the packages you actually use; nothing pulls the entire surface.
