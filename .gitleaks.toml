@@ -1,0 +1,122 @@
+# Omur supply-chain secret regex rules. Extends default Gitleaks ruleset.
+# Ref: omur-business/specs/supply-chain-security.md §4
+
+title = "omur"
+
+[extend]
+useDefault = true
+
+# ---- Vendor API keys (canonical patterns) ----
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API key"
+regex = '''sk-ant-[a-zA-Z0-9\-_]{90,}'''
+tags = ["key", "anthropic"]
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API key"
+regex = '''sk-(proj-)?[a-zA-Z0-9]{40,}'''
+tags = ["key", "openai"]
+
+# ---- Omur internal secrets ----
+
+[[rules]]
+id = "omur-settings-key"
+description = "OMUR_SETTINGS_KEY (Fernet at-rest config)"
+regex = '''(?i)OMUR_SETTINGS_KEY\s*[:=]\s*['"]?[A-Za-z0-9+/_\-]{40,}={0,2}['"]?'''
+tags = ["omur", "settings"]
+
+[[rules]]
+id = "omur-kms-local-master"
+description = "OMUR_KMS_LOCAL_MASTER (local KMS master, Art. 9)"
+regex = '''(?i)OMUR_KMS_LOCAL_MASTER\s*[:=]\s*['"]?[A-Fa-f0-9]{60,}['"]?'''
+tags = ["omur", "kms", "art9"]
+
+[[rules]]
+id = "omur-tenant-token"
+description = "OMUR_TENANT_TOKEN"
+regex = '''(?i)OMUR_TENANT_TOKEN\s*[:=]\s*['"]?[A-Za-z0-9+/_\-]{32,}['"]?'''
+tags = ["omur", "tenant"]
+
+[[rules]]
+id = "omur-llm-proxy-key"
+description = "LLM_PROXY_KEY (cortex bearer)"
+regex = '''(?i)LLM_PROXY_KEY\s*[:=]\s*['"]?[A-Za-z0-9+/_\-]{24,}['"]?'''
+tags = ["omur", "cortex"]
+
+[[rules]]
+id = "omur-solid-sync-token"
+description = "SOLID_SYNC_SERVICE_TOKEN"
+regex = '''(?i)SOLID_SYNC_SERVICE_TOKEN\s*[:=]\s*['"]?[A-Za-z0-9+/_\-]{24,}['"]?'''
+tags = ["omur", "solid"]
+
+[[rules]]
+id = "omur-backup-age-key"
+description = "age private key (BACKUP_ENCRYPTION_KEY)"
+regex = '''AGE-SECRET-KEY-[A-Z0-9]{58}'''
+tags = ["omur", "backup", "age"]
+
+[[rules]]
+id = "authentik-secret-key"
+description = "AUTHENTIK_SECRET_KEY"
+regex = '''(?i)AUTHENTIK_SECRET_KEY\s*[:=]\s*['"]?[A-Za-z0-9+/_\-]{40,}['"]?'''
+tags = ["authentik"]
+
+[[rules]]
+id = "authentik-bootstrap-password"
+description = "AUTHENTIK_BOOTSTRAP_PASSWORD"
+regex = '''(?i)AUTHENTIK_BOOTSTRAP_PASSWORD\s*[:=]\s*['"]?[^'"$?\s#][^'"\s#]{11,}['"]?'''
+tags = ["authentik"]
+
+[[rules]]
+id = "postgres-password"
+description = "POSTGRES_PASSWORD"
+regex = '''(?i)POSTGRES_PASSWORD\s*[:=]\s*['"]?[^'"$?\s#][^'"\s#]{11,}['"]?'''
+tags = ["postgres"]
+
+[[rules]]
+id = "grafana-admin-password"
+description = "GRAFANA_ADMIN_PASSWORD"
+regex = '''(?i)GRAFANA_ADMIN_PASSWORD\s*[:=]\s*['"]?[^'"$?\s#][^'"\s#]{7,}['"]?'''
+tags = ["grafana"]
+
+[[rules]]
+id = "ow-api-key"
+description = "OW_API_KEY (Open Wearables)"
+regex = '''(?i)OW_API_KEY\s*[:=]\s*['"]?[A-Za-z0-9+/_\-]{24,}['"]?'''
+tags = ["omur", "open-wearables"]
+
+[[rules]]
+id = "ow-admin-password"
+description = "OW_ADMIN_PASSWORD"
+regex = '''(?i)OW_ADMIN_PASSWORD\s*[:=]\s*['"]?[^'"$?\s#][^'"\s#]{11,}['"]?'''
+tags = ["omur", "open-wearables"]
+
+# ---- Allowlist: placeholders, examples, fixtures ----
+
+[allowlist]
+description = "Placeholder values and pre-flight false positives"
+paths = [
+  '''(?i)\.env\.example$''',
+  '''(?i)\.env\.sample$''',
+  '''(?i)tests?/.*fixtures?/''',
+  '''(?i)docs?/.*\.md$''',
+  '''Makefile$''',
+  '''\.gitleaks\.toml$''',
+  '''\.gitleaksignore$''',
+]
+regexes = [
+  '''change[-_]me''',
+  '''replace[-_]?me''',
+  '''your[-_][a-z]+[-_]here''',
+  '''REPLACE_WITH_[A-Z_]+''',
+  '''example[-_]?key''',
+  '''dummy''',
+  '''\$\{[A-Z_]+[?:].*\}''',
+  '''omur-passkey-prf-v1''',
+]
+# Pre-flight false positives are allowlisted by fingerprint in
+# .gitleaksignore (the supported mechanism in gitleaks v8.x).
+# Triage rationale lives there.
