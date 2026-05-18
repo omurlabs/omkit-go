@@ -1,0 +1,11 @@
+# Default owner — every file requires review.
+*       @yuzi-co
+
+# Security policy, supply-chain config, and crypto envelope are
+# high-impact paths.
+/SECURITY.md            @yuzi-co
+/.gitleaks.toml         @yuzi-co
+/.github/workflows/     @yuzi-co
+/crypto/                @yuzi-co
+/encryption/            @yuzi-co
+/kms/                   @yuzi-co
