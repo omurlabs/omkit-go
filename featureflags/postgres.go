@@ -168,26 +168,16 @@ func loadFromPool(ctx context.Context, pool *pgxpool.Pool) (map[string]Flag, err
 	return out, rows.Err()
 }
 
-// ParseFromJSON accepts BOTH the legacy bare-bool shape and the new object
-// shape so callers can deploy before the rewrap migration runs. Exported so
-// admin feature-flag endpoints can share the exact same parsing logic the
-// Store uses internally.
-//
-// TODO: drop the legacy fallback once all consumers have applied the
-// corresponding schema migration.
+// ParseFromJSON parses a flag row's value_json into a Flag. The accepted
+// shape is {"enabled": bool, "roles": [string,...]}; malformed or
+// legacy bare-bool rows return a zero (disabled) Flag.
 func ParseFromJSON(raw []byte) Flag {
-	// bare bool
-	var b bool
-	if err := json.Unmarshal(raw, &b); err == nil {
-		return Flag{Enabled: b, Roles: []auth.Role{auth.RoleAdmin, auth.RoleSupport, auth.RoleUser}}
-	}
-	// object shape
 	var obj struct {
 		Enabled bool     `json:"enabled"`
 		Roles   []string `json:"roles"`
 	}
 	if err := json.Unmarshal(raw, &obj); err != nil {
-		return Flag{} // malformed → disabled
+		return Flag{}
 	}
 	roles := make([]auth.Role, 0, len(obj.Roles))
 	for _, r := range obj.Roles {

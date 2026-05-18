@@ -120,10 +120,10 @@ func TestPostgresStore_Invalidate_ForcesReload(t *testing.T) {
 	}
 }
 
-func TestParseFlagJSON_BareBool_GrantsAllRoles(t *testing.T) {
+func TestParseFlagJSON_BareBool_Disabled(t *testing.T) {
 	f := ParseFromJSON([]byte("true"))
-	if !f.Enabled || len(f.Roles) != 3 {
-		t.Fatalf("want Enabled=true, 3 roles; got %+v", f)
+	if f.Enabled || len(f.Roles) != 0 {
+		t.Fatalf("legacy bare-bool must yield disabled Flag; got %+v", f)
 	}
 }
 
