@@ -1,0 +1,68 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":dependencyDashboard"
+  ],
+  "schedule": ["before 6am on monday"],
+  "timezone": "EET",
+  "labels": ["deps"],
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 4,
+  "rebaseWhen": "conflicted",
+  "separateMinorPatch": true,
+  "minimumReleaseAge": "3 days",
+  "platformAutomerge": false,
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["deps", "security"],
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null
+  },
+  "packageRules": [
+    {
+      "description": "Auto-merge patch updates for Go modules",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "Auto-merge digest pins (immutable refs)",
+      "matchUpdateTypes": ["digest", "pin"],
+      "automerge": true
+    },
+    {
+      "description": "Auto-merge GitHub Actions patch+minor",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "addLabels": ["ci"]
+    },
+    {
+      "description": "Group all GitHub Actions bumps into a single PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "Pin GitHub Actions to SHA + tag comment (supply-chain hardening)",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true
+    },
+    {
+      "description": "Go tags + tidy after bump",
+      "matchManagers": ["gomod"],
+      "addLabels": ["go"],
+      "postUpdateOptions": ["gomodTidy", "gomodMassage"]
+    },
+    {
+      "description": "Group golang.org/x/* — always bumped together",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["/^golang\\.org\\/x\\//"],
+      "groupName": "golang.org/x"
+    }
+  ]
+}
