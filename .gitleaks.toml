@@ -102,6 +102,8 @@ paths = [
   '''(?i)\.env\.example$''',
   '''(?i)\.env\.sample$''',
   '''(?i)tests?/.*fixtures?/''',
+  '''(?i)tests?/.*golden/''',
+  '''(?i)testdata/.*golden/''',
   '''(?i)docs?/.*\.md$''',
   '''Makefile$''',
   '''\.gitleaks\.toml$''',
