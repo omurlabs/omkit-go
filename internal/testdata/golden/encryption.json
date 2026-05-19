@@ -1,0 +1,23 @@
+[
+  {
+    "name": "case-0",
+    "key_b64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+    "token": "djGki0yWdu1IZzcUX3fRa9JazI0MKSFwC-O6HCHowypMTtMi1Qjf7GpPTDSz4rQNJIpw731loiNVrQ==",
+    "plaintext": "sk-ant-test-0123456789abcdef",
+    "produced_by": "go"
+  },
+  {
+    "name": "case-1",
+    "key_b64": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=",
+    "token": "djFYwqv4OF3Y4gsr8Uf4LKYGymU1V_bk8lC683OPPnwCQPM=",
+    "plaintext": "short",
+    "produced_by": "go"
+  },
+  {
+    "name": "case-2",
+    "key_b64": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=",
+    "token": "djHaqqP_14kLzvocsMQa8BYXgzBkrNfrADnDK7I_",
+    "plaintext": "",
+    "produced_by": "go"
+  }
+]

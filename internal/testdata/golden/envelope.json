@@ -1,0 +1,31 @@
+[
+  {
+    "name": "minimal-no-request-id",
+    "tenant_id": "11111111-1111-1111-1111-111111111111",
+    "request_id": "",
+    "payload": {
+      "task": "ping"
+    },
+    "envelope_bytes_b64": "eyJ2ZXJzaW9uIjoxLCJ0ZW5hbnRfaWQiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJwYXlsb2FkIjp7InRhc2siOiJwaW5nIn19"
+  },
+  {
+    "name": "with-request-id",
+    "tenant_id": "22222222-2222-2222-2222-222222222222",
+    "request_id": "req-abcdef0123456789",
+    "payload": {
+      "task": "noop"
+    },
+    "envelope_bytes_b64": "eyJ2ZXJzaW9uIjoxLCJ0ZW5hbnRfaWQiOiIyMjIyMjIyMi0yMjIyLTIyMjItMjIyMi0yMjIyMjIyMjIyMjIiLCJyZXF1ZXN0X2lkIjoicmVxLWFiY2RlZjAxMjM0NTY3ODkiLCJwYXlsb2FkIjp7InRhc2siOiJub29wIn19"
+  },
+  {
+    "name": "sorted-multi-key-payload",
+    "tenant_id": "33333333-3333-3333-3333-333333333333",
+    "request_id": "01HX5Z7N5GZ7QY1Q2Q3Q4Q5Q6Q",
+    "payload": {
+      "a": 1,
+      "b": "two",
+      "c": true
+    },
+    "envelope_bytes_b64": "eyJ2ZXJzaW9uIjoxLCJ0ZW5hbnRfaWQiOiIzMzMzMzMzMy0zMzMzLTMzMzMtMzMzMy0zMzMzMzMzMzMzMzMiLCJyZXF1ZXN0X2lkIjoiMDFIWDVaN041R1o3UVkxUTJRM1E0UTVRNlEiLCJwYXlsb2FkIjp7ImEiOjEsImIiOiJ0d28iLCJjIjp0cnVlfX0="
+  }
+]

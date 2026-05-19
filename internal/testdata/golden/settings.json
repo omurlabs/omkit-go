@@ -1,0 +1,23 @@
+[
+  {
+    "name": "anthropic_api_key",
+    "key_b64": "EBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBA=",
+    "token": "djGRb4OSBkAQGXyaxfpRuId7EQOuzSsLOrBdMKOKF3mc6XmwWyYnOo6srGEqPUH18qItlkLOLKlKi7mrxnMqRTR_J6hU2fadokRA",
+    "plaintext": "sk-ant-api03-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "produced_by": "go"
+  },
+  {
+    "name": "openai_api_key",
+    "key_b64": "ERERERERERERERERERERERERERERERERERERERERERE=",
+    "token": "djFi5CH4GTOlt-sC1XSP5vrnYwSbCVTZVLn9DgjiE6N1ib8i4Ki2_4DgF4PMTL-1kl_bi6HKMHqtGYxHU__k8GkUvg9kMYp7Fw==",
+    "plaintext": "sk-proj-YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+    "produced_by": "go"
+  },
+  {
+    "name": "openrouter_api_key",
+    "key_b64": "EhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhI=",
+    "token": "djHNWZrQjlL5IFxe7PPb83Hxxq3SlrKNmr7GnjhyyC0fuIh_NLW--y_E6XXA1Ol0iAVL-wWpMeR5OBuDdtW7ggfN8Fa1NWA=",
+    "plaintext": "sk-or-v1-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ",
+    "produced_by": "go"
+  }
+]
