@@ -1,8 +1,8 @@
 // handler.go — health and readiness HTTP handlers.
 //
-// exports: Handler | ReadyHandler | Probe | ReadyHandlerWithProbes | Mount | LegacyHealthcheck
+// exports: Handler | ReadyHandler | Probe | ReadyHandlerWithProbes | Mount | LegacyHealthcheck | LegacyHealthcheckPath
 // rules:   Liveness handlers must never call external dependencies — they only confirm the process is running. Readiness handlers may call dependencies but must complete fast (under 3s); a slow dependency must surface as not_ready, not as a hung probe. Both /health and /healthz must always return 200 once the process accepts connections, even when readiness is failing.
-// agent:   claude-opus-4-7 | anthropic | 2026-05-03 | track-9-health-ready-audit | added Probe + Mount + LegacyHealthcheck for /healthz + /readyz aliases
+// agent:   claude-opus-4-7 | anthropic | 2026-05-19 | manual | add LegacyHealthcheckPath so callers can probe /ready (dependency-gated readiness) instead of the hardcoded /readyz path
 // message:
 
 // Package health provides standard HTTP health check handlers.
@@ -140,15 +140,35 @@ func Mount(mux Muxer, service, version string, probes ...Probe) {
 // non-nil error when the service is not ready. Wire it into main() before
 // normal startup so distroless images can run a CMD-based HEALTHCHECK
 // without curl/wget on the runtime image.
+//
+// /readyz is the omkit standard alias for "readiness probe". Use
+// LegacyHealthcheckPath when a service needs to probe a different path —
+// for example, when /ready and /readyz gate on different dependency sets
+// (Synapse splits the two: /readyz is DB only, /ready also probes Marrow
+// and its gnokee write path).
 func LegacyHealthcheck(port int) error {
-	url := fmt.Sprintf("http://localhost:%d/readyz", port)
+	return LegacyHealthcheckPath(port, "/readyz")
+}
+
+// LegacyHealthcheckPath is the path-parameterised variant of
+// LegacyHealthcheck. Hits the given path on localhost at the given port and
+// returns a non-nil error when the response status is not 200.
+//
+// The path must include a leading slash. Use this when the caller wants to
+// probe a non-default readiness alias — e.g. Synapse's /ready, which probes
+// the Marrow → gnokee chain on top of the local DB check.
+func LegacyHealthcheckPath(port int, path string) error {
+	if path == "" || path[0] != '/' {
+		return fmt.Errorf("healthcheck path must start with /, got %q", path)
+	}
+	url := fmt.Sprintf("http://localhost:%d%s", port, path)
 	resp, err := http.Get(url) //nolint:gosec,noctx // localhost-only readiness probe
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("readyz returned %d", resp.StatusCode)
+		return fmt.Errorf("%s returned %d", path, resp.StatusCode)
 	}
 	return nil
 }
