@@ -10,8 +10,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Serialize all CI runs across branches. The self-hosted runners share
+  # the same docker host, so concurrent jobs collide on service ports
+  # (postgres 5432, valkey 6379). One global queue avoids the collision.
+  # Same-ref runs still cancel old ones on push; different-ref runs queue.
+  group: ci-shared
+  cancel-in-progress: false
 
 jobs:
   test:
