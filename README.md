@@ -12,14 +12,34 @@ Multi-tenant SaaS scaffolding for Go services.
 boring-but-load-bearing pieces every tenant-isolated service needs: a pgx pool
 that enforces Row-Level Security per connection, a pluggable event bus
 (Postgres `LISTEN/NOTIFY` or Valkey streams/pubsub), session and settings
-stores, an LLM provider abstraction, BYOK encryption + KMS, request-ID
-propagation, an Asynq-based job queue with cron scheduling, and a job-queue
-envelope contract that interoperates with the Python sibling.
+stores, BYOK encryption + KMS, request-ID propagation, an Asynq-based job
+queue with cron scheduling, and a job-queue envelope contract that
+interoperates with the Python sibling.
+
+## What makes this different
+
+omkit-go is not a framework and not a BaaS. Each primitive (pgx, Asynq, OTel,
+slog, Prometheus) is borrowed. The value is in the *seams*:
+
+1. **RLS-per-connection** discipline encoded in `dbpool` — tenant context flows
+   from `tenant.Middleware` through every downstream primitive so policies
+   actually apply at the DB.
+2. **Cross-runtime job envelope** — a Go Asynq worker and a Python streaq
+   worker exchange byte-identical job envelopes over a shared Valkey instance.
+3. **Wire-compatible encryption + settings** with `omkit-python` so secrets
+   written by one runtime decrypt on the other.
+
+Closest neighbors (Encore.dev, Go-Kit, Faktory, Supabase) each cover one axis;
+none cover all three as a library.
 
 - **Status:** `v0.2.0` — internal API stable.
 - **Go:** `1.26.3` (`go.mod`)
 - **License:** Apache-2.0
 - **Sibling:** [`omkit-python`](https://github.com/omurlabs/omkit-python) — same primitives, same envelope contract, same RLS conventions.
+
+> **Scope note:** LLM provider abstraction (`provider` package) is being
+> migrated to **cortex** (see [#2](https://github.com/omurlabs/omkit-go/issues/2)).
+> Expect deprecation before removal.
 
 ## Install
 
@@ -146,11 +166,11 @@ all read from `context.Context`.
 | `valkeysub`    | Valkey pub/sub `Subscriber` with auto-reconnect.                            |
 | `syncnotifier` | Lightweight HTTP `Notifier` for external sync events.                       |
 
-### LLM provider abstraction
+### LLM provider abstraction (deprecated — moving to cortex)
 
 | Package    | What it does                                                                |
 |------------|-----------------------------------------------------------------------------|
-| `provider` | LLM provider implementations — `AnthropicProvider`, `OpenAIProvider`, `OllamaProvider` behind a shared interface. |
+| `provider` | `AnthropicProvider`, `OpenAIProvider`, `OllamaProvider` behind a shared interface. **Slated for migration to cortex — see [#2](https://github.com/omurlabs/omkit-go/issues/2).** |
 
 ### Lifecycle & health
 
@@ -158,12 +178,6 @@ all read from `context.Context`.
 |----------|-----------------------------------------------------------------------------|
 | `health` | Liveness + readiness handlers (`Handler`, `ReadyHandlerWithProbes`, `Mount`, `LegacyHealthcheck`). |
 | `cost`   | `RecordCost` — per-service, per-provider Prometheus counter for usage cost. |
-
-### Placeholder
-
-| Package    | What it does                                          |
-|------------|-------------------------------------------------------|
-| `personas` | Reserved namespace; no exports yet.                   |
 
 ## Cross-SDK job envelope
 
