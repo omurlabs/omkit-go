@@ -21,11 +21,10 @@ on:
 permissions:
   contents: read
 
-# Concurrency policy is per-job. The unit job runs on GitHub-hosted ubuntu
-# so it has no host-port contention; we let it run in parallel. The
-# integration job runs on self-hosted runners that share one docker host,
-# so its service containers (postgres:5432, valkey:6379) collide if two
-# jobs run at once — that job serializes via `integration-shared`.
+# Integration tests against real Postgres/Valkey are run locally and in
+# omur (where the services actually deploy). CI here is unit-only —
+# DB-dependent tests `t.Skip` when TEST_POSTGRES_DSN / TEST_REDIS_ADDR
+# are unset, which they are here.
 
 jobs:
   unit:
@@ -55,69 +54,3 @@ jobs:
       # unit-tier tests deterministically.
       - name: go test (unit only)
         run: go test -race -count=1 ./...
-
-  integration:
-    name: integration (postgres + valkey)
-    runs-on: self-hosted
-    timeout-minutes: 15
-
-    concurrency:
-      # Serialize across all branches: the self-hosted runners share one
-      # docker host. Concurrent service containers fight over host port
-      # 5432 / 6379.
-      group: integration-shared
-      cancel-in-progress: false
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: omkit
-          POSTGRES_PASSWORD: omkit
-          POSTGRES_DB: omkit
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U omkit"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-      valkey:
-        image: valkey/valkey:8-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "valkey-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      TEST_POSTGRES_DSN: postgres://omkit:omkit@127.0.0.1:5432/omkit?sslmode=disable
-      TEST_REDIS_ADDR: 127.0.0.1:6379
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-go@v6
-        with:
-          go-version: "1.26"
-          cache: true
-
-      - name: go mod download
-        run: go mod download
-
-      - name: go test (integration)
-        run: go test -race -count=1 -coverprofile=coverage.out -covermode=atomic ./...
-
-      - name: coverage summary
-        run: go tool cover -func=coverage.out | tail -20
-
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: coverage
-          path: coverage.out
-          if-no-files-found: error
-          retention-days: 14
