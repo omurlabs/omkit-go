@@ -75,17 +75,6 @@
       ],
       "depNameTemplate": "golang.org/x/vuln",
       "datasourceTemplate": "go"
-    },
-    {
-      "description": "Workflows: gitleaks VERSION= pins under .github/workflows/",
-      "customType": "regex",
-      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
-      "matchStrings": [
-        "VERSION=\"(?<currentValue>[0-9][^\"]+)\"[\\s\\S]+?gitleaks/gitleaks/releases"
-      ],
-      "depNameTemplate": "gitleaks/gitleaks",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v?(?<version>.+)$"
     }
   ]
 }
