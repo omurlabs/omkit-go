@@ -49,6 +49,11 @@ jobs:
       - name: Install gitleaks
         # gitleaks-action@v2 requires a paid license for orgs; run the binary
         # directly. Renovate-tracked via customManagers in renovate.json.
+        #
+        # We deliberately do NOT use the shared composite action in
+        # omurlabs/.github here: that repo is private, and GitHub Actions
+        # cannot resolve actions from a private repo when the consumer
+        # repo is public (this repo is public).
         run: |
           set -euo pipefail
           VERSION="8.21.2"
